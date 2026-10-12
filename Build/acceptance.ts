@@ -18,6 +18,9 @@ async function main() {
   const index = await fsp.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   if (!index.includes('data-view="overview"') || !index.includes('data-view="rules"') || !index.includes('data-view="configs"') || !index.includes('<ul class="tree">')) throw new Error('Single entry must switch overview, rules and configs in place');
   if (index.includes('<summary>Config</summary>')) throw new Error('Config artifacts must remain outside the Sukka-style ruleset tree');
+  if (index.includes('>Download<')) throw new Error('Configuration actions must describe URL or client import behavior');
+  if (!index.includes('Open in Shadowrocket') || !index.includes('shadowrocket://config/add/https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf')) throw new Error('Shadowrocket must expose direct client import');
+  if (!index.includes('Template URL') || !index.includes('must be composed with a node base before client import')) throw new Error('Non-importable templates must be labeled explicitly');
   for (const client of ['shadowrocket', 'surge', 'mihomo', 'singbox']) if (!index.includes(`data-client="${client}"`)) throw new Error(`Config switcher is missing ${client}`);
   const allPaths: string[] = [];
   async function walk(directory: string, prefix = ''): Promise<void> {
