@@ -2,11 +2,13 @@
 
 RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护的多客户端规则集工程。项目直接扩展 Sukka 的 `Source → Build → writer → public` 链路，不维护第二套规则引擎。
 
-- 规则目录：<https://codingmesh.github.io/ruleset/>
+- 项目主页：<https://codingmesh.github.io/ruleset/>
+- 规则目录：<https://codingmesh.github.io/ruleset/rules/>
+- 客户端配置：<https://codingmesh.github.io/ruleset/configs/>
 - 生成仓库：<https://github.com/codingmesh/ruleset>
 - 源码仓库：<https://github.com/codingmesh/rulemesh>
 
-公开站点只有一个 ruleset 目录页，用于浏览和引用规则文件。完整配置、组合工具和维护说明集中在本 README，避免把规则服务器做成多入口文档站。
+公开站点使用一个统一导航，分为项目主页、Sukka 风格规则目录和客户端配置页。规则目录只展示规则文件；配置下载与组合命令单独展示，避免再次混在同一页面。
 
 ## 客户端交付
 

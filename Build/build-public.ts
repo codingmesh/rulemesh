@@ -42,7 +42,9 @@ const closedRootFolders = [
 ];
 
 const hiddenRootEntries = new Set([
-  'Config'
+  'Config',
+  'configs',
+  'rules'
 ]);
 
 const rLeadingSlash = /^\/+/;
@@ -74,10 +76,10 @@ export const buildPublic = task(require.main === module, __filename)(async (span
     await Promise.all(p);
   });
 
-  const html = await span
+  const tree = await span
     // crawls the whole public dir; the html templating itself is trivial
     .traceChild('generate index.html', SpanCategory.FsRead)
-    .traceAsyncFn(() => treeDir(PUBLIC_DIR).then(generateHtml));
+    .traceAsyncFn(() => treeDir(PUBLIC_DIR));
 
   return Promise.all([
     compareAndWriteFile(
@@ -98,7 +100,7 @@ export const buildPublic = task(require.main === module, __filename)(async (span
       [
         '# <pre>',
         '#########################################',
-        '# Sukka\'s Ruleset - 404 Not Found',
+        '# RuleMesh - 404 Not Found',
         '################## EOF ##################</pre>'
       ],
       path.join(PUBLIC_DIR, '404.html')
@@ -107,6 +109,7 @@ export const buildPublic = task(require.main === module, __filename)(async (span
       span,
       [
         '# This is a robot-managed repository containing generated RuleMesh output',
+        '# Website: https://codingmesh.github.io/ruleset/',
         '# Source: [codingmesh/rulemesh](https://github.com/codingmesh/rulemesh)',
         '# RuleMesh is based on [SukkaW/Surge](https://github.com/SukkaW/Surge)',
         '',
@@ -119,13 +122,15 @@ export const buildPublic = task(require.main === module, __filename)(async (span
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
     fsp.copyFile(path.join(ROOT_DIR, 'NOTICE'), path.join(PUBLIC_DIR, 'NOTICE')),
     fsp.copyFile(path.join(ROOT_DIR, 'THIRD_PARTY_NOTICES.md'), path.join(PUBLIC_DIR, 'THIRD_PARTY_NOTICES.md')),
-    writeFile(path.join(PUBLIC_DIR, 'index.html'), html)
+    writeFile(path.join(PUBLIC_DIR, 'index.html'), generateHomeHtml()),
+    writeFile(path.join(PUBLIC_DIR, 'rules/index.html'), generateRulesHtml(tree)),
+    writeFile(path.join(PUBLIC_DIR, 'configs/index.html'), generateConfigsHtml())
   ]);
 });
 
 const prioritySorter = (a: TreeType, b: TreeType) => ((priorityOrder[a.name] || priorityOrder.default) - (priorityOrder[b.name] || priorityOrder.default)) || fastStringCompare(a.name, b.name);
 
-export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: string[] = []): string {
+export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: string[] = [], hrefPrefix = ''): string {
   let result = '';
   tree.sort(prioritySorter);
 
@@ -141,37 +146,37 @@ export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: strin
         <li class="folder">
           <details ${open}>
             <summary>${entry.name}</summary>
-            <ul>${treeHtml(entry.children, level + 1)}</ul>
+            <ul>${treeHtml(entry.children, level + 1, closedFolderList, hrefPrefix)}</ul>
           </details>
         </li>
       `;
     } else if (/* entry.type === 'file' && */ !entry.name.endsWith('.html') && entry.name[0] !== '_') {
       const relativePath = entry.path.replaceAll('\\', '/').replace(rLeadingSlash, '');
       result += html`
-        <li class="file"><a class="file-link" href="${relativePath}">${entry.name}</a></li>
+        <li class="file"><a class="file-link" href="${hrefPrefix}${relativePath}">${entry.name}</a></li>
       `;
     }
   }
   return result;
 }
 
-function generateHtml(tree: TreeTypeArray) {
+function generateRulesHtml(tree: TreeTypeArray) {
   return html`
       <!DOCTYPE html>
       <html lang="en">
 
       <head>
         <meta charset="utf-8">
-        <title>RuleMesh Ruleset Server</title>
+        <title>Rulesets | RuleMesh</title>
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
         <meta name="description" content="RuleMesh maintained rulesets for Surge, Shadowrocket, Mihomo, sing-box and compatible clients">
 
-        <meta property="og:title" content="RuleMesh Ruleset Server">
+        <meta property="og:title" content="RuleMesh Rulesets">
         <meta property="og:type" content="Website">
-        <meta property="og:url" content="https://codingmesh.github.io/ruleset/">
+        <meta property="og:url" content="https://codingmesh.github.io/ruleset/rules/">
         <meta property="og:description" content="Maintained multi-client rulesets based on SukkaW/Surge">
         <meta name="twitter:card" content="summary">
-        <link rel="canonical" href="https://codingmesh.github.io/ruleset/">
+        <link rel="canonical" href="https://codingmesh.github.io/ruleset/rules/">
         <style>
           :root {
             --font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -723,17 +728,30 @@ function generateHtml(tree: TreeTypeArray) {
       </head>
       <body>
         <main class="container">
-          <h1>RuleMesh Ruleset Server</h1>
+          <h1>RuleMesh Rulesets</h1>
           <p>
-            Maintained by <a href="https://github.com/codingmesh">codingmesh</a> | Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="https://github.com/codingmesh/rulemesh">Source @ GitHub</a> | Licensed under <a href="LICENSE" target="_blank">AGPL-3.0</a>
+            <a href="../">Home</a> | <a href="../configs/">Client Configs</a> | <a href="https://github.com/codingmesh/rulemesh">Source @ GitHub</a> | Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="../LICENSE">AGPL-3.0</a>
           </p>
           <p>Last Build: ${new Date().toISOString()}</p>
           <br>
           <ul class="tree">
-            ${treeHtml(tree, 0, closedRootFolders)}
+            ${treeHtml(tree, 0, closedRootFolders, '../')}
           </ul>
         </main>
       </body>
     </html>
   `;
+}
+
+function pageShell(title: string, description: string, content: string, current: 'home' | 'configs') {
+  const nav = `<nav><a href="./"${current === 'home' ? ' aria-current="page"' : ''}>Home</a><a href="rules/">Rulesets</a><a href="configs/"${current === 'configs' ? ' aria-current="page"' : ''}>Client Configs</a><a href="https://github.com/codingmesh/rulemesh">Source</a></nav>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>${title}</title><meta name="description" content="${description}"><style>:root{color-scheme:light dark;font:17px/1.6 system-ui,-apple-system,sans-serif;--bg:#111820;--panel:#19232d;--text:#d7e0e7;--muted:#9eacb7;--accent:#22a2cf}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}main,nav{max-width:1080px;margin:auto;padding:24px}nav{display:flex;gap:20px;border-bottom:1px solid #2a3945}a{color:var(--accent)}nav a{text-decoration:none}nav a[aria-current=page]{color:var(--text);font-weight:700}h1{font-size:clamp(2.2rem,6vw,4.6rem);line-height:1.05;margin:64px 0 20px}.lead{max-width:760px;font-size:1.2rem;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:48px 0}.card{display:block;padding:24px;border:1px solid #31414e;border-radius:14px;background:var(--panel);text-decoration:none;color:var(--text)}.card strong{display:block;font-size:1.25rem;margin-bottom:8px}.card span,.muted{color:var(--muted)}section{margin:56px 0}code{overflow-wrap:anywhere}.actions{display:flex;flex-wrap:wrap;gap:10px}.button{display:inline-block;padding:9px 14px;border-radius:9px;background:var(--accent);color:#07141b;text-decoration:none;font-weight:700}.button.secondary{background:#263744;color:var(--text)}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #31414e}@media(prefers-color-scheme:light){:root{--bg:#f7f9fb;--panel:#fff;--text:#1f303d;--muted:#5e6d78;--accent:#087da8}nav{border-color:#d8e0e6}.card,th,td{border-color:#d8e0e6}}</style></head><body>${nav}<main>${content}</main></body></html>`;
+}
+
+function generateHomeHtml() {
+  return pageShell('RuleMesh', 'Maintained multi-client rulesets and configurations based on SukkaW/Surge.', '<h1>RuleMesh</h1><p class="lead">Maintained rulesets and client configurations for Shadowrocket, Surge, Mihomo and sing-box, built directly on SukkaW/Surge.</p><div class="grid"><a class="card" href="rules/"><strong>Browse rulesets</strong><span>Sukka-style directory for every generated client format.</span></a><a class="card" href="configs/"><strong>Use client configs</strong><span>Direct Shadowrocket import and composition templates for other clients.</span></a><a class="card" href="https://github.com/codingmesh/rulemesh"><strong>Maintain rules</strong><span>Source registry, overrides, build and acceptance evidence.</span></a></div><section><h2>Published clients</h2><table><tr><th>Client</th><th>Delivery</th></tr><tr><td>Shadowrocket</td><td>Rulesets and directly importable configs</td></tr><tr><td>Surge</td><td>Rulesets and complete structural templates</td></tr><tr><td>Mihomo</td><td>Rule providers and complete YAML templates</td></tr><tr><td>sing-box</td><td>Headless rule sets and complete JSON templates</td></tr></table></section><p class="muted">Licensed under AGPL-3.0. Based on SukkaW/Surge; third-party notices are preserved with the generated output.</p>', 'home');
+}
+
+function generateConfigsHtml() {
+  return pageShell('Client Configs | RuleMesh', 'RuleMesh client configuration downloads and composition instructions.', '<h1>Client Configs</h1><p class="lead">Rules and configurations share one fixed HTTPS origin. Credentials and private node definitions are never hosted.</p><section><h2>Shadowrocket</h2><div class="actions"><a class="button" href="../Config/Shadowrocket/standard.conf">Standard config</a><a class="button secondary" href="shadowrocket://config/add/https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf">One-click import</a><a class="button secondary" href="../Config/Shadowrocket/standard.svg">QR code</a><a class="button secondary" href="../Config/Shadowrocket/advertising.conf">Advertising variant</a></div></section><section><h2>Surge</h2><div class="actions"><a class="button" href="../Config/surge/standard.conf.template">Standard template</a><a class="button secondary" href="../Config/surge/advertising.conf.template">Advertising template</a></div><p><code>pnpm run config -- compose surge --nodes /absolute/path/base.conf</code></p></section><section><h2>Mihomo</h2><div class="actions"><a class="button" href="../Config/mihomo/standard.yaml.template">Standard template</a><a class="button secondary" href="../Config/mihomo/advertising.yaml.template">Advertising template</a></div><p><code>pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml</code></p></section><section><h2>sing-box</h2><div class="actions"><a class="button" href="../Config/singbox/standard.json.template">Standard template</a><a class="button secondary" href="../Config/singbox/advertising.json.template">Advertising template</a></div><p><code>pnpm run config -- compose singbox --nodes /absolute/path/base.json</code></p></section><p class="muted">Standard excludes advertising rejection. Add <code>--advertising</code> to the local compose command for the advertising variant.</p>', 'configs').replace('href="./"', 'href="../"').replace('href="rules/"', 'href="../rules/"').replace('href="configs/"', 'href="./"');
 }
