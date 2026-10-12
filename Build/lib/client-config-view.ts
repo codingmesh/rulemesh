@@ -4,16 +4,20 @@ import type { ClientDefinition, Variant } from './client-config/clients';
 function artifact(client: ClientDefinition, variant: Variant): string {
   const relative = configPath(client, variant);
   const url = SITE_BASE + relative;
+  const visibleUrl = url.replaceAll('/', '/<wbr>');
   const label = variant === 'standard' ? 'Standard' : 'Advertising';
-  const qr = client.qr ? `<a class="secondary" href="Config/${client.configDirectory}/${variant}.svg">QR</a>` : '';
-  return `<article class="artifact"><h4>${label}</h4><span class="path">${relative}</span><div class="actions"><a href="${importUrl(client, url, `RuleMesh ${label}`)}">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="${url}">Copy URL</button><a class="secondary" href="${relative}">View ${client.role === 'profile' ? 'Config' : 'Template'}</a>${qr}</div></article>`;
+  const title = variant === 'standard' ? '标准分流' : '广告拦截';
+  const description = variant === 'standard' ? '国内与局域网直连，其余流量按服务分组。' : '在标准分流基础上，增加广告与恶意域名拦截。';
+  const heading = `config-${client.id}-${variant}`;
+  const qr = client.qr ? `<details class="config-qr"><summary>二维码</summary><div class="qr-content"><img src="Config/${client.configDirectory}/${variant}.svg" width="208" height="208" loading="lazy" alt="${client.label} ${title}导入二维码"><p>在 ${client.label} 中扫描，导入这份配置。</p></div></details>` : '';
+  return `<article class="artifact" aria-labelledby="${heading}"><div class="artifact-heading"><h4 id="${heading}">${title}</h4>${variant === 'standard' ? '<span class="config-badge">日常使用</span>' : ''}</div><p class="variant-description">${description}</p><div class="config-url"><code>${visibleUrl}</code><button type="button" data-copy-url="${url}" aria-label="复制${title} URL">复制 URL</button></div><div class="actions"><a class="config-button" href="${importUrl(client, url, `RuleMesh ${label}`)}">${client.role === 'profile' ? '导入客户端' : '导入模板'} <span aria-hidden="true">↗</span></a><a class="config-source" href="${relative}">查看${client.role === 'profile' ? '配置' : '模板'}</a></div>${qr}</article>`;
 }
 function panel(client: ClientDefinition): string {
-  const composed = client.role === 'template' ? `<p><code>pnpm run config -- compose ${client.id} --nodes /absolute/path/base.${client.configExtension}</code></p><div class="import-composed" data-import-client="${client.id}"><h4>Import composed config</h4><label>Composed HTTPS config URL<input type="url" inputmode="url" placeholder="https://example.com/rulemesh.${client.configExtension}"></label><button type="button" data-import-open>Open &amp; Import in ${client.label}</button><p class="import-error" aria-live="polite"></p></div>` : '';
-  return `<div id="client-panel-${client.id}" role="tabpanel" aria-labelledby="client-tab-${client.id}" data-client-panel="${client.id}"${client.id === clients[0].id ? '' : ' hidden'}><h3>${client.label}</h3><p>${client.role === 'profile' ? 'Complete profile using your existing client nodes.' : 'Structural template: compose with your real nodes before use.'}</p><div class="artifact-list">${variants.map(variant => artifact(client, variant)).join('')}</div>${composed}<p>Rules: <code>${client.rulesDirectory}/{domainset,non_ip,ip}/</code></p></div>`;
+  const composed = client.role === 'template' ? `<section class="compose-help" aria-labelledby="compose-${client.id}"><h4 id="compose-${client.id}">加入自己的节点</h4><p>在源码仓库中，用节点底稿生成完整配置：</p><pre><code>pnpm run config -- compose ${client.id} --nodes /absolute/path/base.${client.configExtension}</code></pre><p>添加 <code>--advertising</code> 使用广告拦截规则。生成后可本地导入，或托管到自己的 HTTPS 地址：</p><form class="import-composed" data-import-client="${client.id}" novalidate><label for="import-url-${client.id}">完整配置 URL</label><div class="import-row"><input id="import-url-${client.id}" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/rulemesh.${client.configExtension}" aria-describedby="import-error-${client.id}"><button class="config-button" type="submit" data-import-open>导入客户端 <span aria-hidden="true">↗</span></button></div><p id="import-error-${client.id}" class="import-error" aria-live="polite"></p></form></section>` : '';
+  return `<div id="client-panel-${client.id}" role="tabpanel" aria-labelledby="client-tab-${client.id}" data-client-panel="${client.id}"${client.id === clients[0].id ? '' : ' hidden'}><div class="client-heading"><h3>${client.label}</h3><span class="config-kind">${client.role === 'profile' ? '完整配置' : '配置模板'}</span></div><p class="client-note">${client.role === 'profile' ? '直接导入后，在 node-selection 和服务分组中选择已有节点。' : '模板不包含可用节点；先与自己的节点底稿组合，再导入完整配置。'}</p><div class="artifact-list">${variants.map(variant => artifact(client, variant)).join('')}</div>${composed}<p class="config-resources"><a href="#rules">浏览 ${client.rulesDirectory} 规则</a></p></div>`;
 }
 export function renderClientConfigs(): string {
-  return `<section id="configs" data-view="configs" hidden><h2>Client Configs</h2><p>Every published configuration artifact is listed here. Switching clients only changes focus; credentials and node definitions are never hosted.</p><p>Every card can open its client, copy the public URL or show the file. Shadowrocket profiles use existing client nodes. Surge, Mihomo and sing-box files contain a <code>REPLACE-ME</code> placeholder and must first be composed with your node base.</p><p>Choose a default node, then adjust families and individual services in your client. Standard profiles exclude advertising; advertising profiles evaluate rejection before general routing.</p><div class="client-switch" role="tablist" aria-label="Client format">${clients.map((client, index) => `<button type="button" role="tab" id="client-tab-${client.id}" aria-controls="client-panel-${client.id}" tabindex="${index === 0 ? 0 : -1}" data-client="${client.id}" aria-selected="${index === 0}">${client.label}</button>`).join('')}</div>${clients.map(panel).join('')}<p><a href="Config/README.md">Configuration manifest</a> · <a href="Config/capability-gaps.json">Capability gaps</a></p></section>`;
+  return `<section id="configs" data-view="configs" hidden><div class="config-intro"><h2>客户端配置</h2><p>选择客户端，复制配置 URL 或直接导入。</p></div><div class="client-switch" role="tablist" aria-label="选择客户端">${clients.map((client, index) => `<button type="button" role="tab" id="client-tab-${client.id}" aria-controls="client-panel-${client.id}" tabindex="${index === 0 ? 0 : -1}" data-client="${client.id}" aria-selected="${index === 0}">${client.label}</button>`).join('')}</div>${clients.map(panel).join('')}<footer class="config-footer"><a href="Config/README.md">配置说明</a><a href="Config/capability-gaps.json">客户端能力差异</a></footer></section>`;
 }
 export function clientConfigScript(): string {
   const definitions = clients.reduce<Record<string, { prefix: string, encoded: boolean, fragment: boolean }>>((result, client) => {
@@ -48,15 +52,17 @@ async function copyUrl(button){
       const copied=document.execCommand('copy');field.remove();
       if(!copied)throw new Error('Clipboard unavailable');
     }
-    button.textContent='Copied';
-  }catch{button.textContent='Copy failed'}
+    button.textContent='已复制';
+  }catch{button.textContent='复制失败'}
   setTimeout(()=>button.textContent=label,1500);
 }
 for(const button of document.querySelectorAll('[data-copy-url]'))button.addEventListener('click',()=>void copyUrl(button));
-for(const form of document.querySelectorAll('[data-import-client]'))form.querySelector('[data-import-open]').addEventListener('click',()=>{
+for(const form of document.querySelectorAll('[data-import-client]'))form.addEventListener('submit',event=>{
+  event.preventDefault();
   const input=form.querySelector('input'),error=form.querySelector('.import-error');
   try{
-    const url=new URL(input.value);if(url.protocol!=='https:'||url.username||url.password)throw new Error('Use a plain HTTPS URL');
+    let url;try{url=new URL(input.value)}catch{throw new Error('请输入完整的 HTTPS 配置 URL')}
+    if(url.protocol!=='https:'||url.username||url.password)throw new Error('请使用不含账号密码的 HTTPS 配置 URL');
     const definition=definitions[form.dataset.importClient];
     if(!definition)throw new Error('Unknown client');
     error.textContent='';

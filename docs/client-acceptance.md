@@ -10,7 +10,7 @@
 | P02 顺序与冲突 | 细服务/国内特例优先于宽平台；补齐Sukka的apple_cn、game-download排序。既有优先级测试扩展独立约束，先复现失败再修正；两内核38项原生请求包括Apple CN、游戏下载、直接CN IP和域名解析至CN IP | 通过当前契约及代表行为验证，不宣称穷尽所有互联网域名 |
 | P03 格式与配置 | 最终719个登记产物、8份配置的字节/哈希/策略/引用/广告隔离通过；Surge、Mihomo、sing-box两档共6份原生配置检查通过，新增China SRS编译成功。Shadowrocket沿用已实测writer/导入结构；其为完整profile，其他三端需组合真实节点底稿 | 本地通过 |
 | P04 自定义与维护 | Source/override单链维护、重应用及来源/worker扩展实验；已有46项独立组/分类请求和规则刷新/重启/底稿重组；真实HTTP节点provider刷新和完整配置API热载入通过 | 通过已列维护与更新机制 |
-| P05 站点与入口 | 浏览器核对规则树无Config/LegacyClashPremium，四客户端切换和8张卡片的Copy URL与scheme地址一致；既有复制与QR生成机制未改变 | 本地通过 |
+| P05 站点与入口 | 规则树与Config分开；四客户端切换和8张卡片的URL/scheme对应正确。二维码改为卡片内原生details展开，展开后地址不变且图片加载成功；复制成功反馈、键盘切换和完整配置表单Enter校验实测通过；320/375/1280px无横向溢出，浅/深色配置页axe WCAG2 A/AA均0违规 | 本地通过 |
 | P06 工程、文档与许可 | TypeScript、68项测试、ESLint 0 error/25条既有warning通过；兼容writer、目录常量、worker注册及展示删除，来源/许可/研究保留；删除失效实施状态和设备验收门槛 | 通过 |
 | P07 公开交付身份 | 发布前，现有站点、8份配置、2份QR、4份Anthropic规则和部署标记共16个URL返回200，标记为ed766d95；新版本必须由既有main发布链核对对应提交标记及新China IP引用 | 既有URL通过；本次上线证据由[对应Actions](https://github.com/codingmesh/rulemesh/actions/workflows/main.yml)和deploy-check提供 |
 
@@ -22,6 +22,8 @@
 - 文档将手机/GUI/系统扩展当成项目完成门槛，且任务页叠加已失效中间状态：已删除并改为当前项目任务和实际证据。
 
 当前证据：`.cache/project-final-{types,tests,lint,build,acceptance,native}.txt`、`.cache/project-category-coverage.json`、`.cache/project-online-urls.json`、`.cache/project-priority-before.txt`、`.cache/project-generated-diff.json`及`.cache/project-china.srs`。完整构建复用已记录的固定动态/历史输入；CI发布则执行真实网络构建并核对同份交付树。产物对照确认49份删除全部属于LegacyClashPremium；新增6份为China IP五端输出及语义元数据，其他规则文件内容保持不变。下方记录的是此前客户端补充实测的环境及范围。
+
+随后README/配置页优化：统一配置区16px正文及标题、控件层级；URL直接显示，QR内联折叠，模板组合说明保持可见。README精简为使用/规则/维护入口，详细操作归入既有工程文档，生成仓库README和Config说明同步精简。未增加纯样式单测；类型、相关lint和artifact acceptance通过。固定输入产物对照只有index、两份生成README和源码标记改变，规则与八份配置内容未变。浏览器截图、两主题a11y结果及检查日志位于`.cache/config-*`；这是界面与文档变更，不再重做设备或原生路由验证。
 
 ## 此前客户端补充实测
 

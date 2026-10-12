@@ -101,12 +101,15 @@ export const buildPublic = task(require.main === module, __filename)(async (span
     compareAndWriteFile(
       span,
       [
-        '# This is a robot-managed repository containing generated RuleMesh output',
-        '# Website: https://codingmesh.github.io/ruleset/',
-        '# Source: [codingmesh/rulemesh](https://github.com/codingmesh/rulemesh)',
-        '# RuleMesh is based on [SukkaW/Surge](https://github.com/SukkaW/Surge)',
+        '# RuleMesh',
         '',
-        '![GitHub repo size](https://img.shields.io/github/repo-size/codingmesh/ruleset?style=flat-square)'
+        '多客户端规则组与配置，基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护。',
+        '',
+        '**[客户端配置与导入](https://codingmesh.github.io/ruleset/#configs)** · [规则目录](https://codingmesh.github.io/ruleset/#rules)',
+        '',
+        '本仓库由 [RuleMesh 源码仓库](https://github.com/codingmesh/rulemesh) 自动生成。规则修改、自定义维护和问题反馈请到源码仓库进行。',
+        '',
+        '许可与归属见 [LICENSE](LICENSE)、[NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。'
       ],
       path.join(PUBLIC_DIR, 'README.md')
     ),
@@ -155,7 +158,7 @@ export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: strin
 function generateSiteHtml(tree: TreeTypeArray) {
   return html`
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang="zh-CN">
 
       <head>
         <meta charset="utf-8">
@@ -716,37 +719,75 @@ function generateSiteHtml(tree: TreeTypeArray) {
       .tree li.folder>details[open]>summary::before {
         background-image: var(--icon-folder-open);
       }
-      .site-nav { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:2.5rem }
-      .site-nav a, .client-switch button { border:1px solid var(--muted-border-color); border-radius:.5rem; color:var(--color); padding:.5rem .8rem; text-decoration:none; background:transparent; cursor:pointer }
-      .site-nav a[aria-current=page], .client-switch button[aria-selected=true] { background:#08749d; border-color:#08749d; color:#fff }
+      .site-header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 0; margin-bottom:32px; border-bottom:1px solid var(--muted-border-color); background:var(--background-color) }
+      .site-header h1 { margin:0; font:650 28px/1.2 "Avenir Next",system-ui,sans-serif; letter-spacing:-1px }
+      .site-nav { display:flex; flex-wrap:wrap; gap:4px }
+      .site-header .site-nav a { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:8px 14px; border-radius:6px; color:var(--h2-color); font:500 14px/1.4 var(--font-family); text-decoration:none }
+      .site-header .site-nav a[aria-current=page] { background:var(--primary-focus); color:var(--h1-color) }
+      .site-header .site-nav a:hover { text-decoration:none; background:var(--primary-focus) }
+      [data-view] { scroll-margin-top:96px }
       [data-view][hidden], [data-client-panel][hidden] { display:none }
       .intro { max-width:48rem; color:var(--color) }
       .entry-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:1rem; margin:2rem 0 }
       .entry { border:1px solid var(--muted-border-color); border-radius:.75rem; padding:1.2rem }
       .entry h2 { margin-bottom:.5rem }
-      .client-switch { display:flex; flex-wrap:wrap; gap:.5rem; margin:1.5rem 0 }
-      .actions { display:flex; flex-wrap:wrap; gap:.65rem; margin:1rem 0 }
-      .actions a, .actions button { border:0; border-radius:.5rem; background:#08749d; color:#fff; padding:.55rem .85rem; text-decoration:none }
-      .actions a.secondary, .actions button.secondary { background:var(--secondary); color:var(--secondary-inverse) }
-      .artifact-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(16rem,1fr)); gap:1rem; margin:1rem 0 1.5rem }
-      .artifact { border:1px solid var(--muted-border-color); border-radius:.65rem; padding:1rem }
-      .artifact h4 { margin:0 0 .4rem }
-      .artifact p { margin:.35rem 0 }
-      .path { display:block; color:var(--color); font-size:.85rem }
-      .validated { color:var(--ins-color); font-weight:700 }
-      .import-composed { border-top:1px solid var(--muted-border-color); margin-top:1.25rem; padding-top:1rem }
-      .import-composed label { display:block; font-weight:700 }
-      .import-composed input { margin:.45rem 0 .7rem }
-      .import-error { color:var(--del-color); min-height:1.4em }
+      #configs { --font-size:16px; --config-surface:#fff; --config-soft:#f3f7fa; --config-border:#d5e0e7; --config-muted:#536875; --config-ink:#172f40; --config-accent:#086d8b; --config-inverse:#fff; font:400 16px/1.6 var(--font-family); color:var(--config-ink) }
+      #configs h2, #configs h3, #configs h4 { font-family:"Avenir Next",var(--font-family); color:var(--config-ink); letter-spacing:-.4px }
+      #configs h2 { margin:0 0 8px; font-size:32px; line-height:1.25; font-weight:650 }
+      #configs h3 { margin:0; font-size:23px; line-height:1.4; font-weight:600 }
+      #configs h4 { margin:0; font-size:20px; line-height:1.4; font-weight:600 }
+      #configs p { margin:0 }
+      #configs a { color:var(--config-accent) }
+      #configs :is(a,button,input,summary):focus-visible, .site-nav a:focus-visible { outline:2px solid var(--primary); outline-offset:4px }
+      .config-intro p { color:var(--config-muted) }
+      .client-switch { display:flex; flex-wrap:wrap; gap:6px; margin:24px 0 28px; padding:6px; border:1px solid var(--config-border); border-radius:10px; background:var(--config-soft); width:fit-content; max-width:100% }
+      #configs .client-switch button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin:0; padding:10px 16px; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--config-muted); font:500 14px/1.4 var(--font-family); cursor:pointer }
+      #configs .client-switch button[aria-selected=true] { border-color:var(--config-border); background:var(--config-surface); color:var(--config-ink); box-shadow:0 1px 3px #0000000a }
+      .client-heading, .artifact-heading { display:flex; align-items:center; flex-wrap:wrap; gap:12px }
+      .config-kind { color:var(--config-muted); font-size:13px }
+      #configs .client-note { margin:8px 0 20px; color:var(--config-muted); max-width:760px }
+      .artifact-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:20px }
+      .artifact { min-width:0; border:1px solid var(--config-border); border-radius:10px; padding:24px; background:var(--config-surface) }
+      .config-badge { font:500 12px/1.5 var(--font-family); padding:3px 8px; border-radius:4px; color:var(--config-accent); background:var(--config-soft) }
+      #configs .variant-description { margin:8px 0 20px; color:var(--config-muted); font-size:14px }
+      .config-url { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--config-border); border-radius:6px; background:var(--config-soft) }
+      .config-url code { flex:1; min-width:0; overflow-wrap:anywhere; font:400 13px/1.7 "SFMono-Regular",Menlo,Consolas,monospace; color:var(--config-muted); background:none; padding:0 }
+      #configs .config-url button { flex:none; min-height:44px; margin:0; padding:8px; border:0; border-radius:4px; background:none; color:var(--config-accent); font:600 13px/1.4 var(--font-family); cursor:pointer; white-space:nowrap }
+      #configs .config-url button:hover { background:var(--primary-focus) }
+      .actions { display:flex; align-items:center; flex-wrap:wrap; gap:20px; margin-top:20px }
+      #configs .config-button { display:inline-flex; align-items:center; justify-content:center; gap:12px; min-height:44px; margin:0; padding:10px 16px; border:1px solid var(--config-accent); border-radius:6px; background:var(--config-accent); color:var(--config-inverse); font:600 14px/1.5 var(--font-family); text-decoration:none; cursor:pointer }
+      #configs .config-button:hover { filter:brightness(.9); text-decoration:none }
+      .config-source { font-size:14px; text-underline-offset:4px }
+      .config-qr { margin-top:20px; padding-top:14px; border-top:1px solid var(--config-border) }
+      .config-qr summary { width:fit-content; color:var(--config-accent); font-size:14px; cursor:pointer; min-height:28px }
+      .qr-content { display:flex; align-items:center; flex-wrap:wrap; gap:20px; margin-top:16px }
+      .qr-content img { display:block; width:208px; height:208px; max-width:100%; background:white; border:1px solid var(--config-border); border-radius:6px }
+      #configs .qr-content p { color:var(--config-muted); font-size:13px; max-width:180px }
+      .compose-help { margin-top:28px; padding:24px; border:1px solid var(--config-border); border-radius:10px; background:var(--config-soft) }
+      #configs .compose-help h4 { margin-bottom:8px; font-size:18px }
+      #configs .compose-help p { color:var(--config-muted); font-size:14px }
+      .compose-help pre { margin:14px 0; padding:14px 16px; border:1px solid var(--config-border); border-radius:6px; background:var(--config-surface); white-space:pre-wrap; overflow-wrap:anywhere }
+      .compose-help pre code { font:400 13px/1.7 "SFMono-Regular",Menlo,Consolas,monospace }
+      .import-composed { margin-top:20px }
+      .import-composed label { margin-bottom:8px; font-size:14px; font-weight:600 }
+      .import-row { display:flex; align-items:stretch; gap:12px }
+      #configs .import-row input { flex:1; min-width:0; width:100%; margin:0; padding:12px 14px; border:1px solid var(--config-border); border-radius:6px; background:var(--config-surface); color:var(--config-ink); font:400 16px/1.4 var(--font-family) }
+      .import-row button { flex:none }
+      #configs .import-error { color:var(--del-color); font-size:14px; margin-top:8px }
+      .import-error:empty { display:none }
+      #configs .config-resources { margin-top:24px; font-size:14px }
+      .config-footer { display:flex; flex-wrap:wrap; gap:24px; margin-top:32px; padding-top:20px; border-top:1px solid var(--config-border); font-size:13px }
+      @media (prefers-color-scheme:dark) { #configs { --config-surface:#14222c; --config-soft:#101b23; --config-border:#30414e; --config-muted:#b0c1ce; --config-ink:#e6edf2; --config-accent:#8dd5eb; --config-inverse:#10212a } }
+      @media (max-width:700px) { .artifact-list { grid-template-columns:1fr } .artifact, .compose-help { padding:20px } .import-row { flex-direction:column } }
+      @media (max-width:600px) { .site-header { align-items:flex-start; flex-direction:column; gap:10px; padding:12px 0; margin-bottom:24px } .site-nav { gap:0 } .site-header .site-nav a { padding:8px 12px } [data-view] { scroll-margin-top:150px } .client-switch { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100% } #configs .client-switch button { padding:10px 8px } #configs h2 { font-size:28px } .config-url { flex-direction:column; align-items:stretch; gap:4px } .config-url button { align-self:flex-end } }
       code { overflow-wrap:anywhere }
       </style>
       </head>
       <body>
         <main class="container">
-          <h1>RuleMesh</h1>
-          <nav class="site-nav" aria-label="RuleMesh sections"><a href="#overview" data-nav="overview">Overview</a><a href="#rules" data-nav="rules">Rulesets</a><a href="#configs" data-nav="configs">Client Configs</a><a href="https://github.com/codingmesh/rulemesh">Source</a></nav>
-          <section id="overview" data-view="overview"><p class="intro">Maintained multi-client rulesets and configurations for Shadowrocket, Surge, Mihomo and sing-box, built directly on SukkaW/Surge.</p><div class="entry-grid"><article class="entry"><h2>Rulesets</h2><p>Browse every generated client format in the inherited Sukka directory.</p><p><a href="#rules">Open rulesets</a></p></article><article class="entry"><h2>Client configs</h2><p>Import Shadowrocket directly or compose a configuration with your existing nodes.</p><p><a href="#configs">Open configs</a></p></article><article class="entry"><h2>Maintenance</h2><p>Pinned sources, custom overrides, native validation and reproducible publication.</p><p><a href="https://github.com/codingmesh/rulemesh">Open source</a></p></article></div><p><a href="Internal/artifact-manifest.json">Build inputs and artifact hashes</a></p><p>Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="LICENSE">AGPL-3.0</a></p></section>
-          <section id="rules" data-view="rules" hidden><h2>Rulesets</h2><ul class="tree">${treeHtml(tree, 0, closedRootFolders)}</ul></section>
+          <header class="site-header"><h1>RuleMesh</h1><nav class="site-nav" aria-label="RuleMesh 导航"><a href="#overview" data-nav="overview">概览</a><a href="#rules" data-nav="rules">规则目录</a><a href="#configs" data-nav="configs">客户端配置</a><a href="https://github.com/codingmesh/rulemesh">GitHub ↗</a></nav></header>
+          <section id="overview" data-view="overview"><p class="intro">按服务分类的规则组与多客户端配置，支持 Shadowrocket、Surge、Mihomo 和 sing-box。</p><div class="entry-grid"><article class="entry"><h2>规则目录</h2><p>沿用 Sukka 目录展示，按客户端和分类查找规则。</p><p><a href="#rules">浏览规则</a></p></article><article class="entry"><h2>客户端配置</h2><p>选择标准或广告档，使用自己的节点导入配置。</p><p><a href="#configs">选择配置</a></p></article><article class="entry"><h2>自定义与维护</h2><p>添加自己的规则，查看来源和维护文档。</p><p><a href="https://github.com/codingmesh/rulemesh">查看源码</a></p></article></div><p>基于 <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> · <a href="LICENSE">AGPL-3.0</a></p></section>
+          <section id="rules" data-view="rules" hidden><h2>规则目录</h2><ul class="tree">${treeHtml(tree, 0, closedRootFolders)}</ul></section>
           ${renderClientConfigs()}
         </main>
         <script>const views=[...document.querySelectorAll('[data-view]')],nav=[...document.querySelectorAll('[data-nav]')];function showView(){const name=location.hash.slice(1)||'overview';for(const view of views)view.hidden=view.dataset.view!==name;for(const link of nav)link.setAttribute('aria-current',link.dataset.nav===name?'page':'false')}addEventListener('hashchange',showView);showView();${clientConfigScript()}</script>

@@ -27,15 +27,12 @@ export const buildClientConfig = task(require.main === module, __filename)(async
   })));
   await settleBuildWork([
     compareAndWriteFile(span, [
-      '# RuleMesh client configurations', '',
-      'Shadowrocket configs are directly importable. Surge, Mihomo and sing-box files are complete structural templates; compose them with your node base using the source repository CLI.', '',
-      'Policy hierarchy:', '',
-      '1. Choose the default node in the root node selector.',
-      '2. AI, social and streaming family selectors inherit that choice.',
-      '3. Anthropic, OpenAI, Gemini, Telegram, YouTube and Netflix inherit their family and may be overridden independently.',
-      '4. Private and mainland China traffic default to direct. Global fallback defaults to the root node selector.',
-      '5. The advertising profile evaluates reject rules before private, service, domestic and global rules; the standard profile contains no advertising rules.', '',
-      'Target-specific omissions that cannot be represented natively are listed in capability-gaps.json.'
+      '# RuleMesh 客户端配置', '',
+      '**[打开配置页](https://codingmesh.github.io/ruleset/#configs)**：切换客户端，复制 URL、导入配置或展开二维码。', '',
+      '- **Shadowrocket**：直接导入，在 node-selection 中选择已有订阅或节点。',
+      '- **Surge、Mihomo、sing-box**：公开文件为节点占位模板，先用[源码仓库的组合命令](https://github.com/codingmesh/rulemesh#使用配置)加入自己的节点。', '',
+      '**标准分流**使用服务分组、国内和局域网直连；**广告拦截**在此基础上增加拒绝规则。默认节点、家庭组和具体服务出口均可在客户端调整。', '',
+      '客户端不能表达的规则差异见 [capability-gaps.json](capability-gaps.json)。'
     ], path.join(PUBLIC_DIR, 'Config/README.md')),
     compareAndWriteFile(span, JSON.stringify({ schemaVersion: 1, reviewedAt: approval.checkedAt, targets }, null, 2).split('\n'), path.join(PUBLIC_DIR, 'Config/capability-gaps.json'))
   ]);

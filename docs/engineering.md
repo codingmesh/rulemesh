@@ -14,6 +14,37 @@
 
 ## 2. 目录责任
 
+### 维护操作
+
+修改人工维护的规则，直接编辑`Source/domainset/`、`Source/non_ip/`或`Source/ip/`对应文件。domainset的`.example.com`包含子域名，`example.com`只匹配该域名；non_ip/ip使用原生规则类型。规则来源和格式遵循该文件已有说明。
+
+MetaCubeX自动同步分类的补充或删除写入`sources/overrides.json`，避免同步覆盖人工修改；每项包含`category`、`value`、`reason`、`evidence`、`checkedAt`。例如：
+
+```json
+{
+  "category": "anthropic",
+  "value": ".claude.app",
+  "reason": "Claude Desktop网络要求",
+  "evidence": "https://code.claude.com/docs/en/desktop#network-access-requirements",
+  "checkedAt": "2026-10-11"
+}
+```
+
+新增自建分类时，在`Source/`添加文件，在`sources/maintained.json`的`manual`数组登记`path`、`license`、`maintenance`；在`Build/lib/client-config/routing-profile.ts`选定所属策略及排序。已有同步分类不重复登记。固定快照（包括China IP）保留在`maintained.files`，更新时同时审阅来源提交和规则差异。
+
+```sh
+pnpm run sync             # 检查上游是否有新候选
+pnpm run sync -- --write  # 更新候选规则，供审阅
+pnpm run sync:verify      # 核对已固定的服务数据
+pnpm exec tsc --noEmit
+pnpm test
+pnpm lint
+pnpm build
+PUBLIC_DIR=public pnpm acceptance
+```
+
+自动候选经审阅后采用，自有修正会重新应用。发布沿用main的既有CI，校验后更新固定站点；不手工复制未验收产物。人工、固定快照、继承源不得重复声明同一个文件。
+
 | 位置 | 应承担的责任 | 不应承担的责任 |
 | --- | --- | --- |
 | `Source/` | 人工维护规则与声明式服务数据 | 网络请求、构建编排、客户端节点选择 |
