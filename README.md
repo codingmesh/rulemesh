@@ -46,7 +46,7 @@ pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml
 pnpm run config -- compose singbox --nodes /absolute/path/base.json
 ```
 
-每个配置和模板都提供 **Copy URL**。把组合后的文件托管到自己的 HTTPS 地址后，可在站点对应客户端面板粘贴该 URL，通过 `surge:///install-config`、Clash Verge Rev 的 `clash://install-config` 或 `sing-box://import-remote-profile` 执行 **Open & Import**。URL 只在浏览器本地编码，不会提交给 RuleMesh。
+站点中的每张配置卡都提供 **Open & Import**、**Copy URL** 和 **View Template**。直接打开公开模板可以检查客户端接管流程，但其中的 `REPLACE-ME` 不是可用节点；实际使用时仍需先组合自己的节点底稿。把组合后的文件托管到自己的 HTTPS 地址后，可在同一客户端面板的 **Import composed config** 区域粘贴 URL，通过 `surge:///install-config`、Clash Verge Rev 的 `clash://install-config` 或 `sing-box://import-remote-profile` 导入。URL 只在浏览器本地编码，不会提交给 RuleMesh。
 
 客户端无法原生表达的规则类型不会被描述为等价支持；当前逐分类差异发布在 `Config/capability-gaps.json`，审阅基线位于 `sources/capability-gaps-approved.json`。新增或消失的能力缺口会阻断构建，必须更新理由和审阅日期。
 
