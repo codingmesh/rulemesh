@@ -14,9 +14,9 @@ export const partitions: Partition[] = ['domainset', 'non_ip', 'ip'];
 const serviceOrder = [
   'anthropic', 'openai', 'openai.no-resolve', 'gemini', 'copilot', 'xai', 'perplexity', 'apple-intelligence', 'apple_intelligence', 'ai-other', 'ai',
   'telegram', 'telegram.no-resolve', 'discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit', 'youtube', 'netflix',
-  'disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'bilibili', 'apple-cn',
+  'disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'bilibili', 'apple-cn', 'apple_cn',
   'icloud', 'apple-music', 'apple-tv', 'google-fcm', 'onedrive', 'microsoft_cdn', 'npm', 'python', 'docker', 'github',
-  'gitlab', 'jetbrains', 'developer', 'steam-cn', 'game-downloads', 'steam', 'epic-games', 'playstation',
+  'gitlab', 'jetbrains', 'developer', 'steam-cn', 'game-download', 'game-downloads', 'steam', 'epic-games', 'playstation',
   'xbox', 'nintendo'
 ];
 const platformOrder = ['downloads', 'apple', 'google', 'microsoft', 'aws', 'digitalocean', 'cloudflare', 'games', 'download', 'cdn', 'speedtest', 'cloudmounter'];

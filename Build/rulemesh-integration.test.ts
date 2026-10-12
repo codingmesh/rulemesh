@@ -5,7 +5,7 @@ import { treeHtml } from './build-public';
 import { TreeFileType } from './lib/tree-dir';
 import { ShadowrocketRuleSet } from './lib/writing-strategy/shadowrocket';
 import { domainWildcardToRegex, SingboxSource } from './lib/writing-strategy/singbox';
-import { assertNodeOnlySingboxRoute } from './build-client-config';
+import { assertNodeOnlySingboxRoute } from './lib/client-config/configuration';
 
 describe('RuleMesh integration with the inherited build', () => {
   it('keeps configuration output out of the root rules directory', () => {
@@ -48,6 +48,6 @@ describe('RuleMesh integration with the inherited build', () => {
   it('does not turn process-name globs into ineffective exact sing-box names', () => {
     const writer = new SingboxSource('non_ip'); writer.writeProcessNames(new Set(['curl', 'qbittorrent*']));
     const document = JSON.parse((writer.content ?? []).join('\n')) as { rules: Array<{ process_name?: string[] }> };
-    expect(document.rules[0].process_name).toEqual(['curl']);
+    expect(document.rules.find(rule => rule.process_name)?.process_name).toEqual(['curl']);
   });
 });

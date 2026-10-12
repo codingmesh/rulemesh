@@ -22,10 +22,8 @@ import { downloadMockAssets } from './download-mock-assets';
 import { buildPublic } from './build-public';
 import { buildCloudMounterRules } from './build-cloudmounter-rules';
 import { buildClientConfig } from './build-client-config';
-import { pruneOutput } from './prune-output';
 
 import { printBuildReport, whyIsNodeRunning } from './trace';
-import type { TraceResult } from './trace';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { ROOT_DIR } from './constants/dir';
@@ -34,19 +32,23 @@ import { printExternalDownloadStats } from './lib/download-stats';
 import { printWireStats } from './lib/download-wire-stats';
 import { endBuildWorkerFarm, getBuildWorkerFarm, warmBuildWorkerFarm } from './lib/build-worker-farm';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled rejection:', reason);
-  process.exit(1);
-});
+import { closeFetchAgent } from './lib/fetch-retry';
+import { assertBuildActive, buildContext, failBuild, finalizeBuildOutput, finishBuildContext, mergeWorkerValue, prepareBuildOutput, recordInput, settleBuildWork } from './lib/build-output';
+import { validateSourceCatalog } from './lib/source-catalog';
 
 const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
 
-(async () => {
+let building = false;
+export async function buildRulesetServer(): Promise<void> {
+  if (building) throw new Error('A build is already running');
+  building = true;
+  try {
+    await runBuild();
+  } finally {
+    building = false;
+  }
+}
+async function runBuild(): Promise<void> {
   console.log('Version:', process.version);
 
   console.log(`OS: ${os.type()} ${os.release()} ${os.arch()}`);
@@ -85,10 +87,15 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
   // that crosses the offload threshold. Booted here rather than on first use so
   // the ~250ms-per-thread spin-up overlaps the first downloads instead of landing
   // on the critical path. Everything else is I/O-bound and stays on this thread.
-  warmBuildWorkerFarm();
-  const farm = getBuildWorkerFarm();
-
+  let cleanupFailed = false;
+  let cleanupFailure: unknown;
+  let failed = false;
   try {
+    const catalog = await validateSourceCatalog();
+    await prepareBuildOutput();
+    for (let i = 0, len = catalog.inputs.length; i < len; i++) recordInput(catalog.inputs[i]);
+    warmBuildWorkerFarm();
+    const farm = getBuildWorkerFarm();
     // only enable why-is-node-running in GitHub Actions debug mode
     if (isCI && process.env.RUNNER_DEBUG === '1') {
       await import('why-is-node-running');
@@ -96,14 +103,14 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
 
     const downloadPreviousBuildPromise = downloadPreviousBuild();
 
-    const [traces, telegramTraces]: [TraceResult[], TraceResult[]] = await Promise.all([
-      Promise.all([
+    const [traces, telegramTraces] = await settleBuildWork([
+      settleBuildWork([
         downloadPreviousBuildPromise,
         downloadPreviousBuildPromise.then(() => buildCommon()),
         downloadPreviousBuildPromise.then(() => buildRejectIPList()),
         downloadPreviousBuildPromise.then(() => buildAppleCdn()),
         downloadPreviousBuildPromise.then(() => buildAICIDR()),
-        downloadPreviousBuildPromise.then(() => farm.buildCdnDownloadConf()),
+        downloadPreviousBuildPromise.then(() => { assertBuildActive(); return farm.buildCdnDownloadConf(buildContext()); }).then(mergeWorkerValue),
         downloadPreviousBuildPromise.then(() => buildRejectDomainSet()),
         downloadPreviousBuildPromise.then(() => buildSpeedtestDomainSet()),
         downloadPreviousBuildPromise.then(() => buildDomesticRuleset()),
@@ -111,18 +118,15 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
         downloadPreviousBuildPromise.then(() => buildRedirectModule()),
         downloadPreviousBuildPromise.then(() => buildAlwaysRealIPModule()),
         downloadPreviousBuildPromise.then(() => buildStreamService()),
-        downloadPreviousBuildPromise.then(() => farm.buildMicrosoftCdn()),
+        downloadPreviousBuildPromise.then(() => { assertBuildActive(); return farm.buildMicrosoftCdn(buildContext()); }).then(mergeWorkerValue),
         downloadPreviousBuildPromise.then(() => buildCloudMounterRules()),
-        downloadMockAssets()
+        downloadPreviousBuildPromise.then(() => downloadMockAssets())
       ]),
       downloadPreviousBuildPromise.then(() => buildTelegram())
     ]);
 
     appendArrayInPlace(traces, telegramTraces);
-    traces.push(await pruneOutput(), await buildClientConfig(), await buildPublic());
-
-    // write a file to demonstrate that the build is finished
-    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+    traces.push(await buildClientConfig(), await buildPublic());
 
     printExternalDownloadStats();
     printWireStats();
@@ -131,14 +135,36 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
       cpu: process.cpuUsage(cpuAtStart)
     });
 
-    await endBuildWorkerFarm();
-
-    // Finish the build to avoid leaking timer/fetch ref
     await whyIsNodeRunning();
-    process.exit(0);
-  } catch (e) {
-    console.error('Something went wrong!');
-    console.trace(e);
-    process.exit(1);
+  } catch (error) {
+    failed = true;
+    failBuild();
+    throw error;
+  } finally {
+    const results = await Promise.allSettled([endBuildWorkerFarm(), closeFetchAgent()]);
+    for (let i = 0, len = results.length; i < len; i++) {
+      const result = results[i];
+      if (result.status === 'rejected') {
+        console.error('Build resource cleanup failed:', result.reason);
+        if (!cleanupFailed) { cleanupFailed = true; cleanupFailure = result.reason; }
+      }
+    }
+    if (cleanupFailed) failBuild();
+    if (failed || cleanupFailed) finishBuildContext();
   }
-})();
+  if (cleanupFailed) throw cleanupFailure;
+  try {
+    await finalizeBuildOutput();
+  } finally {
+    finishBuildContext();
+  }
+  // Success includes resource teardown; a failed build cannot leave this marker.
+  fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+}
+
+if (require.main === module) {
+  void buildRulesetServer().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

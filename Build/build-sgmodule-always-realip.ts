@@ -9,9 +9,10 @@ import * as yaml from 'yaml';
 import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR } from './constants/dir';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { SHARED_DESCRIPTION } from './constants/description';
-import { createGetDnsMappingRule } from './build-domestic-direct-lan-ruleset-dns-mapping-module';
+import { createGetDnsMappingRule } from './lib/dns-mapping';
 import { ClashDomainSet } from './lib/writing-strategy/clash';
 import { FileOutput } from './lib/rules/base';
+import { settleBuildWork } from './lib/build-output';
 
 const HOSTNAMES = [
   // Network Detection, Captive Portal
@@ -79,7 +80,7 @@ export const buildAlwaysRealIPModule = task(require.main === module, __filename)
     clashFakeIpFilter.addFromRuleset(domains.flatMap(getDnsMappingRuleWithoutWildcard));
   }
 
-  return Promise.all([
+  return settleBuildWork([
     compareAndWriteFile(
       span,
       [

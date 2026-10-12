@@ -1,6 +1,5 @@
 import fsp from 'node:fs/promises';
 import { sep } from 'node:path';
-import type { VoidOrVoidArray } from './misc';
 
 // eslint-disable-next-line sukka/no-export-const-enum -- TODO: fix this in the future
 export const enum TreeFileType {
@@ -27,13 +26,12 @@ export type TreeTypeArray = TreeType[];
 export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
   const tree: TreeTypeArray = [];
 
-  const promises: Array<Promise<VoidOrVoidArray>> = [];
-
-  const walk = async (dir: string, node: TreeTypeArray, dirRelativeToRoot = ''): Promise<VoidOrVoidArray> => {
-    for await (const child of await fsp.opendir(dir)) {
+  const walk = async (dir: string, node: TreeTypeArray, dirRelativeToRoot = ''): Promise<void> => {
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    await Promise.all(entries.map(async child => {
       // Ignore hidden files
       if (child.name[0] === '.' || child.name === 'CNAME') {
-        continue;
+        return;
       }
 
       const childFullPath = child.parentPath + sep + child.name;
@@ -47,8 +45,8 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
           children: []
         };
         node.push(newNode);
-        promises.push(walk(childFullPath, newNode.children, childRelativeToRoot));
-        continue;
+        await walk(childFullPath, newNode.children, childRelativeToRoot);
+        return;
       }
       if (child.isFile()) {
         const newNode: TreeFile = {
@@ -58,11 +56,10 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
         };
         node.push(newNode);
       }
-    }
+    }));
   };
 
   await walk(rootPath, tree);
-  await Promise.all(promises);
 
   return tree;
 }

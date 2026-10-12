@@ -19,13 +19,13 @@ import { getBuildWorkerFarm } from './lib/build-worker-farm';
 import { RulesetOutput } from './lib/rules/ruleset';
 import { fetchAssets } from './lib/fetch-assets';
 import { AUGUST_ASN, HUIZE_ASN } from '../Source/ip/badboy_asn';
-
-const readLocalRejectDomainsetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'domainset/reject.conf'));
-const readLocalRejectExtraDomainsetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'domainset/reject_extra.conf'));
-const readLocalRejectRulesetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/reject.conf'));
-const readLocalRejectIpListPromise = readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'ip/reject.conf'));
+import { buildContext, mergeWorkerValue, settleBuildWork } from './lib/build-output';
 
 export const buildRejectDomainSet = task(require.main === module, __filename)(async (span) => {
+  const readLocalRejectDomainsetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'domainset/reject.conf'));
+  const readLocalRejectExtraDomainsetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'domainset/reject_extra.conf'));
+  const readLocalRejectRulesetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/reject.conf'));
+  const readLocalRejectIpListPromise = readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'ip/reject.conf'));
   // Downloading + parsing the remote sources is ~1s of CPU that used to sit on the
   // main thread's critical path; the parsed arrays cross back in ~25ms (see
   // lib/worker-transfer.bench.ts). The farm is shared with the rest of the build
@@ -145,12 +145,9 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
   const foundDebugDomain = await span
     .traceChild('download and process hosts / adblock filter rules')
     .traceAsyncFn(async (childSpan) => {
-      rejectPhisingDomainsetOutput.addFromDomainset(
-        childSpan.traceWorkerChild('get phishing domains', rawSpan => rejectWorker.getPhishingDomains(rawSpan))
-      );
-
-      const [sources] = await Promise.all([
-        childSpan.traceWorkerChild('get reject sources', rawSpan => rejectWorker.getRejectSources(rawSpan)),
+      const [sources, phishing] = await settleBuildWork([
+        childSpan.traceWorkerChild('get reject sources', rawSpan => rejectWorker.getRejectSources(rawSpan, buildContext())).then(mergeWorkerValue),
+        childSpan.traceWorkerChild('get phishing domains', rawSpan => rejectWorker.getPhishingDomains(rawSpan, buildContext())).then(mergeWorkerValue),
 
         childSpan.traceChildAsync(
           'get bogus nxdomain ips',
@@ -169,6 +166,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
           SpanCategory.Network
         )
       ]);
+      rejectPhisingDomainsetOutput.addFromDomainset(phishing);
 
       // Everything below is trie / set insertion on the main thread -- the part
       // that can not move, since the tries live here.
@@ -201,11 +199,10 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     });
 
   if (foundDebugDomain) {
-    // eslint-disable-next-line sukka/unicorn/no-process-exit -- cli App
-    process.exit(1);
+    throw new Error('Reject sources contain the configured debug domain');
   }
 
-  await Promise.all([
+  await settleBuildWork([
     rejectDomainsetOutput.done(),
     rejectExtraDomainsetOutput.done(),
     rejectPhisingDomainsetOutput.done(),
@@ -271,7 +268,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     .addFromDomainset(readLocalRejectExtraDomainsetPromise);
 
   await rejectOutputAdGuardHome.done();
-  await Promise.all([
+  await settleBuildWork([
     rejectOutputAdGuardHome.write(),
     rejectPhisingDomainsetOutput.write(),
     rejectDomainsetOutput.write(),

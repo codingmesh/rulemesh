@@ -14,15 +14,15 @@
 
 | 上游具体实现 | 采用职责 | 保留的差异/验收 |
 | --- | --- | --- |
-| [Source / build-common](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-common.ts) | 手工输入、元数据、通用扫描及专项任务共享流程 | 项目 sources/owned/overrides 接入同一流程；新增来源不另造路由阶段 |
+| [Source / build-common](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-common.ts) | 手工输入、元数据、通用扫描及专项任务共享流程 | registry、maintained 与 overrides 接入同一流程；目录与维护归属闭合校验，新增来源不另造路由阶段 |
 | [FileOutput](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/rules/base.ts) | 收集语义数据，不决定目标格式 | 原始来源/解析意图/覆盖保留；不是要求照抄类层次 |
 | [strategy-write-data](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/rules/strategy-write-data.ts) | trie、集合、类型分桶、稳定整理 | 覆盖之后输出前优化；跨分类不能去重。IPv4 合并、IPv6 规范化集合；优先核对成熟依赖 |
 | [domainset / ruleset](https://github.com/SukkaW/Surge/tree/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/rules) | 一个业务分类可按匹配类型分体输出 | 域名集与非域名条件相邻引用同策略；不能一条 keyword 使整个分类失去域名格式优化 |
-| [writing-strategy](https://github.com/SukkaW/Surge/tree/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/writing-strategy) | 同源多客户端 writer | Shadowrocket 单独适配；不采用静默 noop。必需语义阻断和批准缺口分别登记 |
+| [writing-strategy](https://github.com/SukkaW/Surge/tree/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/writing-strategy) | 同源多客户端 writer | Shadowrocket 单独适配；域名视图投影与批准缺口分别登记。诊断来自转换前的条件与来源，未知类型阻断 |
 | [build-ai-cidr / build-telegram](https://github.com/SukkaW/Surge/tree/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build) | 官方动态数据与本地补充 | 首批 Telegram CIDR/OpenAI Voice；锁字节/条款/时间，保留解析意图，端口缺口明确 |
 | [国内 DNS 配套](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-domestic-direct-lan-ruleset-dns-mapping-module.ts) | 路由、DNS、hosts、real-IP 职责分别组织 | 不照搬个人 DNS 地址；按目标验证启动解析、直连/代理 DNS 及 GUI 切换影响 |
-| [content-hash / create-file](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/create-file.ts) | 复用旧产物，实际内容不变不改日期 | 兼容旧路径与明确退役；不建立公开 prepared/版本目录 |
-| [build-deprecate-files](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-deprecate-files.ts) | 明确列出退役文件，删除或保留迁移说明 | 分体迁移与既有模板升级分别验收；过渡期后按清单退役，不要求永久保存旧内容；退役说明不等于原规则仍生效 |
+| [content-hash / create-file](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/lib/create-file.ts) | 复用旧产物，实际内容不变不改日期 | 仅复制本次请求的文件；比较保留来源和许可，仅归一化已列明的日期字段；不建立公开版本目录 |
+| [build-deprecate-files](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-deprecate-files.ts) | 输出集合必须明确 | 已用空目录构建与真实 IO 登记替代删除黑名单；无当前生产者的旧文件不能进入交付树 |
 | [build-public](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/Build/build-public.ts) | 真实静态目录与产物仓库说明 | 增加完整配置、档位、QR、节点接入与验证状态；Mock/MITM 不默认加入 |
 | [main.yml](https://github.com/SukkaW/Surge/blob/6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62/.github/workflows/main.yml) | 同份构建、PR 产物 diff、主分支部署、线上标记核验 | 一个产物仓库/站点；不复制 force push/archive/可见性切换；输入候选需审阅，线上未可见不报成功 |
 
@@ -35,11 +35,11 @@
 | 国内平台资源与游戏下载 | Sukka 国内 CDN、Apple CN、Microsoft CDN、game-download 等；Meta 属性子集 | 国内资源与账号/主服务分开，跨分类重叠有裁决，不按出口国家划分类 |
 | 官方服务缺口 | Anthropic 官方网络要求、Telegram CIDR、OpenAI Voice 地址 | 有证据地补缺，官方动态数据与 GitHub 数据同样可追溯；不把共享云后缀/ASN 全归单服务 |
 | 可选广告/追踪/恶意域名 | Sukka 分层、Meta category-ads-all、blackmatrix 专项对照 | 标准档不启用，广告档显式选择；白名单/误拦截原因及源视图可核查 |
-| 中国 IP 兜底 | 目标客户端 GEOIP 或使用者底稿 CN 原生规则集 | 本项目暂不再分发 China IP；sing-box 明确依赖，缺失不能宣称完整国内兜底 |
+| 中国 IP 兜底 | 固定 MetaCubeX `geo/geoip/cn.list`；另外三端仍保留原生 GEOIP 后备 | `Source/ip/china.conf`通过既有writer输出四主端格式，放在服务/私有规则之后、FINAL之前；sing-box在resolve后匹配。来源、许可和人工更新责任登记在maintained.json，不采用研究中许可归属未解决的chnroutes候选 |
 
 当前产物每份采用一个主要上游许可加本项目补充；Sukka/Meta 分开组织，blackmatrix7 仅对照。未声明许可的模板仅参考行为。条目来源和数据传递关系记录到实际输入，不用仓库根许可证替代文件范围核查。
 
-实际消费的数据分成三类：`sources/registry.json` 固定并同步 MetaCubeX 分类，`sources/maintained.json` 记录不自动同步的 Sukka 固定快照和官方网络事实，`sources/overrides.json` 保存带理由、证据和核查日期的 add/remove 修正。参考设计的仓库不进入这三份数据清单。
+实际消费的数据分成三类：`sources/registry.json` 固定并同步 MetaCubeX 分类，`sources/maintained.json` 记录人工继承源、固定快照和官方网络事实，`sources/overrides.json` 保存带理由、证据和核查日期的 add/remove 修正。构建记录实际采用的动态输入哈希、历史测速输入和 Mock 后备选择；参考设计的仓库不会自动进入数据来源或 Git upstream。
 
 ## 4. 参考项目的设计采用
 

@@ -6,9 +6,11 @@ import { $$fetch } from './lib/fetch-retry';
 import { createReadlineInterfaceFromResponse } from './lib/fetch-text-by-line';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { fetchTelegramBackupEndpoints } from './lib/fetch-telegram-backup-endpoints';
+import { fetchTelegramBackupEndpoints, resetTelegramBackupEndpoints } from './lib/fetch-telegram-backup-endpoints';
+import { createHash } from 'node:crypto';
+import { recordInput, settleBuildWork } from './lib/build-output';
 
-const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(async (span) => {
+const buildTelegramCIDR = task(false, 'build-telegram-cidr')(async (span) => {
   const { timestamp, ipcidr, ipcidr6 } = await span.traceChildAsync('get telegram cidr', async (childSpan) => {
     const ipcidr: string[] = [
       // Unused secret Telegram backup CIDR, announced by AS62041
@@ -29,7 +31,7 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
         }
       }
 
-      return lastModified ? new Date(lastModified) : new Date();
+      return lastModified ? new Date(lastModified) : null;
     });
 
     // https://github.com/tdlib/td/blob/master/td/ConfigManager.cpp
@@ -38,12 +40,13 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
       innerSpan => fetchTelegramBackupEndpoints(innerSpan, { includeTestServers: true })
     );
     const backupIPs = new Set(backupEndpoints.map(endpoint => endpoint.ip));
+    recordInput({ source: 'Telegram signed backup endpoints (production and test)', role: 'dynamic', sha256: createHash('sha256').update(JSON.stringify(backupEndpoints)).digest('hex') });
 
     console.log('[telegram backup ip]', `Found ${backupIPs.size} backup IPs:`, backupIPs);
 
     appendArrayInPlace(ipcidr, Array.from(backupIPs, i => i + '/32'));
 
-    return { timestamp: date.getTime(), ipcidr, ipcidr6 };
+    return { timestamp: date?.getTime() ?? null, ipcidr, ipcidr6 };
   });
 
   if (ipcidr.length + ipcidr6.length === 0) {
@@ -61,7 +64,7 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
     .withDescription(description)
     // .withDate(date) // With extra data source, we no longer use last-modified for file date
     .appendDataSource(
-      'https://core.telegram.org/resources/cidr.txt (last updated: ' + new Date(timestamp).toISOString() + ')'
+      timestamp === null ? 'https://core.telegram.org/resources/cidr.txt' : 'https://core.telegram.org/resources/cidr.txt (last updated: ' + new Date(timestamp).toISOString() + ')'
     )
     .bulkAddCIDR4NoResolve(ipcidr)
     .bulkAddCIDR6NoResolve(ipcidr6)
@@ -227,12 +230,13 @@ async function fetchConfigFromBootstrapEndpoints(span: Span) {
   );
 }
 
-export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto-dc-config')(async (span) => {
+const buildMTProtoDCConfig = task(false, 'build-mtproto-dc-config')(async (span) => {
   const config = await span.traceChildAsync(
     'fetch help.getConfig',
     fetchConfigFromBootstrapEndpoints,
     SpanCategory.Network
   );
+  recordInput({ source: 'Telegram MTProto help.getConfig (normalized public configuration)', role: 'dynamic', sha256: createHash('sha256').update(JSON.stringify(config)).digest('hex') });
 
   const backupEndpoints = await span.traceChildAsync(
     'fetch telegram backup endpoints',
@@ -240,6 +244,7 @@ export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto
   );
 
   const liveEndpoints = config.options.length;
+  recordInput({ source: 'Telegram signed backup endpoints (production)', role: 'dynamic', sha256: createHash('sha256').update(JSON.stringify(backupEndpoints)).digest('hex') });
   const mergeResult = mergeFallbackEndpoints(config, backupEndpoints);
   console.log('[telegram mtproto config]', {
     liveEndpoints,
@@ -254,9 +259,10 @@ export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto
 
 // Start both tasks in this worker concurrently. They retain independent trace
 // results while sharing the module-scoped production backup endpoint promise.
-export function buildTelegram() {
-  return Promise.all([
-    buildTelegramCIDR(),
-    buildMTProtoDCConfig()
-  ]);
+export async function buildTelegram() {
+  resetTelegramBackupEndpoints();
+  try {
+    return await settleBuildWork([buildTelegramCIDR(), buildMTProtoDCConfig()]);
+  } finally { resetTelegramBackupEndpoints(); }
 }
+task(require.main === module, __filename)(async () => { await buildTelegram(); });

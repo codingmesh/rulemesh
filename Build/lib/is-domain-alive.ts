@@ -1,5 +1,5 @@
 import { createDomainAliveChecker, createRegisterableDomainAliveChecker } from 'domain-alive';
-import { $$fetch, fetchAgent, fetchForDoH } from './fetch-retry';
+import { $$fetch, getFetchAgent, fetchForDoH } from './fetch-retry';
 
 const dnsServers = [
   'https://8.8.8.8/dns-query', 'https://8.8.4.4/dns-query',
@@ -52,16 +52,15 @@ const dnsServers = [
   // 'https://dns.rabbitdns.org/dns-query' -- TO MANY HTTP 522
 ];
 
-const resultCache = new Map();
-const registerableDomainResultCache = new Map();
-
 export function createDomainAliveMethods(customWhoisServersMapping: Record<string, string>) {
+  const resultCache = new Map();
+  const registerableDomainResultCache = new Map();
   const isRegisterableDomainAlive = createRegisterableDomainAliveChecker({
     dns: {
       dnsServers,
       maxAttempts: 6,
       customFetchForDoH: fetchForDoH,
-      customAgentForDoH: fetchAgent
+      customAgentForDoH: getFetchAgent()
     },
     registerableDomainResultCache,
     whois: {
@@ -74,7 +73,7 @@ export function createDomainAliveMethods(customWhoisServersMapping: Record<strin
       dnsServers,
       maxAttempts: 6,
       customFetchForDoH: fetchForDoH,
-      customAgentForDoH: fetchAgent
+      customAgentForDoH: getFetchAgent()
     },
     registerableDomainResultCache,
     resultCache,

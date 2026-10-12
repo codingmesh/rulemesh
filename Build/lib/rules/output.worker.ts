@@ -2,6 +2,7 @@ import { SpanCategory, workerJob } from '../../trace';
 import type { RawSpan, WorkerJobResult } from '../../trace';
 import { resolveStrategyOutputPath, reviveStrategy, writeDataToStrategies } from './strategy-write-data';
 import type { OutputWorkerPayload } from './strategy-write-data';
+import { writeRuleMetadata } from './capabilities';
 
 /**
  * The off-main-thread half of FileOutput#write. Everything from "raw collections"
@@ -34,6 +35,7 @@ export function writeOutput(rawSpan: RawSpan | undefined, payload: OutputWorkerP
           SpanCategory.Compute
         );
       }
+      if (strategies.some(strategy => strategy.name === 'singbox')) await writeRuleMetadata(payload.id, strategies[0].type, payload.data);
     });
   });
 }

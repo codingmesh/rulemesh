@@ -18,6 +18,10 @@ interface FetchTelegramBackupEndpointsOptions {
 
 let productionEndpointsPromise: Promise<TelegramBackupEndpoint[]> | undefined;
 let testEndpointsPromise: Promise<TelegramBackupEndpoint[]> | undefined;
+export function resetTelegramBackupEndpoints(): void {
+  productionEndpointsPromise = undefined;
+  testEndpointsPromise = undefined;
+}
 
 function deduplicateEndpoints(endpoints: readonly TelegramBackupEndpoint[]) {
   const deduplicated = new Map<string, TelegramBackupEndpoint>();

@@ -4,6 +4,11 @@ RuleMesh is a downstream development of SukkaW/Surge. Improve the inherited
 modules directly; do not introduce a parallel rules engine, wrapper project,
 vendor copy, or extension-layer directory.
 
+Follow `docs/engineering.md` for module responsibilities, error propagation,
+resource ownership, output/input contracts, and risk-based validation. Record
+actual evidence in `docs/refactor-tasks.md`; passing local checks alone does not
+mean the full client product is accepted.
+
 - Put maintained rule sources in `Source/`.
 - Add client formats through `Build/lib/writing-strategy/` and the existing
   `FileOutput` fan-out.

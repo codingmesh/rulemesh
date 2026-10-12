@@ -21,16 +21,15 @@ function domainListLineCbIncludeAllSubdomain(line: string, set: string[], meta: 
 
   set.push('.' + domain);
 }
-export function processDomainListsWithPreload(
+export function createDomainListProcessor(
   domainListsUrl: string, mirrors: string[] | null,
-  includeAllSubDomain = false,
+  includeAllSubdomain = false,
   allowEmptyRemote = false
 ) {
-  const downloadPromise = fetchAssets(domainListsUrl, mirrors, true, allowEmptyRemote);
-  const lineCb = includeAllSubDomain ? domainListLineCbIncludeAllSubdomain : domainListLineCb;
+  const lineCb = includeAllSubdomain ? domainListLineCbIncludeAllSubdomain : domainListLineCb;
 
   return (span: Span) => span.traceChildAsync(`process domainlist: ${domainListsUrl}`, async (childSpan) => {
-    const filterRules = await childSpan.traceChildPromise('download', downloadPromise, SpanCategory.Network);
+    const filterRules = await childSpan.traceChildAsync('download', () => fetchAssets(domainListsUrl, mirrors, true, allowEmptyRemote), SpanCategory.Network);
     const domainSets: string[] = [];
 
     childSpan.traceChildSync('parse domain list', () => {

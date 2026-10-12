@@ -6,11 +6,11 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy } from '../writing-strategy/base';
 import { AdGuardHome } from '../writing-strategy/adguardhome';
 import { ClashClassicRuleSet, ClashDomainSet, ClashIPSet } from '../writing-strategy/clash';
-import { LegacyClashPremiumClassicRuleSet } from '../writing-strategy/legacy-clash-premium';
 import { SingboxSource } from '../writing-strategy/singbox';
 import { SurfboardRuleSet } from '../writing-strategy/surfboard';
 import { SurgeDomainSet, SurgeMitmSgmodule, SurgeRuleSet } from '../writing-strategy/surge';
 import { ShadowrocketRuleSet } from '../writing-strategy/shadowrocket';
+import type { RuleOrigin } from './capabilities';
 
 /**
  * A structured-clone friendly snapshot of everything FileOutput feeds into its
@@ -19,6 +19,7 @@ import { ShadowrocketRuleSet } from '../writing-strategy/shadowrocket';
  * (not Set) so the contract survives any worker serialization mode.
  */
 export interface StrategyWriteData {
+  origins?: Record<string, RuleOrigin[]>,
   /** Raw trie dump, '.'-prefix means include-all-subdomain, NOT yet punycoded */
   domains: string[],
   domainKeywords: string[],
@@ -82,7 +83,7 @@ export function writeDataToStrategies(data: StrategyWriteData, strategies: BaseW
   const whiteKwfilter = createKeywordFilter(data.whitelistKeywords);
   const whitelistedKeywords = data.domainKeywords.filter(kw => !whiteKwfilter(kw));
 
-  const domainKeywords = new Set(data.domainKeywords);
+  const domainKeywords = new Set(whitelistedKeywords);
   const protocol = new Set(data.protocol);
 
   for (let i = 0; i < strategiesLen; i++) {
@@ -239,7 +240,6 @@ const strategyRegistry: Record<string, (d: StrategyDescriptor) => BaseWriteStrat
   'clash domainset': (d) => new ClashDomainSet(d.outputDir),
   'clash ipcidr': (d) => new ClashIPSet(d.outputDir),
   'clash classic ruleset': (d) => new ClashClassicRuleSet(d.type, d.outputDir),
-  'legacy clash premium classic ruleset': (d) => new LegacyClashPremiumClassicRuleSet(d.type as 'ip' | 'non_ip', d.outputDir),
   'surfboard for android ruleset': (d) => new SurfboardRuleSet(d.type as 'ip' | 'non_ip', d.outputDir),
   singbox: (d) => new SingboxSource(d.type as 'domainset' | 'non_ip' | 'ip', d.outputDir),
   adguardhome: (d) => new AdGuardHome(d.outputDir)

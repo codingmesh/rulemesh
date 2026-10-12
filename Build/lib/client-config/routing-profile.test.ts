@@ -9,6 +9,21 @@ describe('client routing profile', () => {
 
     expect(orderedCategories(available, false)).toEqual(['private', 'anthropic', 'global']);
     expect(orderedCategories(available, true)).toEqual(['advertising', 'private', 'anthropic', 'global']);
+
+    // These overlaps cross service, platform and domestic boundaries. Checking
+    // independent priority pairs avoids mirroring the renderer's own order.
+    const priorityPairs = [
+      ['anthropic', 'ai-other'], ['openai', 'ai-other'], ['gemini', 'google'],
+      ['copilot', 'github'], ['copilot', 'microsoft'], ['apple-intelligence', 'apple'],
+      ['youtube', 'google'], ['netflix', 'stream'], ['apple-cn', 'apple'], ['apple_cn', 'apple'],
+      ['steam-cn', 'steam'], ['game-download', 'steam'], ['game-downloads', 'games'], ['github', 'cloudflare'],
+      ['direct', 'downloads'], ['private', 'global'], ['china', 'global']
+    ];
+    const order = orderedCategories(new Set(priorityPairs.flat()), false);
+    for (let i = 0, len = priorityPairs.length; i < len; i++) {
+      const [specific, broad] = priorityPairs[i];
+      expect(order.indexOf(specific) < order.indexOf(broad)).toEqual(true);
+    }
   });
 
   it('lets service selectors inherit a family selector while remaining overridable', () => {

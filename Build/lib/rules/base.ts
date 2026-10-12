@@ -12,6 +12,18 @@ import { isMainThread } from 'node:worker_threads';
 import { resolveStrategyOutputPath, serializeStrategy, writeDataToStrategies } from './strategy-write-data';
 import type { OutputWorkerPayload, StrategyWriteData } from './strategy-write-data';
 import { getBuildWorkerFarm } from '../build-worker-farm';
+import { processLine } from '../process-line';
+import { buildContext, mergeWorkerValue, settleBuildWork } from '../build-output';
+import { writeRuleMetadata } from './capabilities';
+import type { RuleOrigin } from './capabilities';
+
+interface RuleLocations { file: string, lineNumbers?: number[] }
+const RULE_TYPES = new Set([
+  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD',
+  'USER-AGENT', 'PROCESS-NAME', 'URL-REGEX',
+  'IP-CIDR', 'IP-CIDR6', 'IP-ASN', 'GEOIP',
+  'SRC-IP', 'SRC-PORT', 'DEST-PORT', 'PROTOCOL', 'AND', 'OR', 'NOT'
+]);
 
 /**
  * Below this many dumped domain entries, formatting + hashing + writing inline is
@@ -56,8 +68,9 @@ export class FileOutput {
   protected protocol = new Set<string>();
 
   protected otherRules: string[] = [];
+  private readonly origins: Record<string, RuleOrigin[]> = {};
 
-  private pendingPromise: Promise<any> | null = null;
+  private pendingPromise: Promise<void> | null = null;
 
   whitelistDomain = (domain: string) => {
     this.domainTrie.whitelist(domain);
@@ -97,7 +110,7 @@ export class FileOutput {
 
   protected description: string[] | null = null;
   withDescription(description: string[] | readonly string[]) {
-    this.description = description as string[];
+    this.description = [...description];
     return this;
   }
 
@@ -190,6 +203,9 @@ export class FileOutput {
   }
 
   private addDomainsetLine(line: string) {
+    const processed = processLine(line);
+    if (!processed || processed.charCodeAt(0) === 35) return;
+    line = processed;
     const otherPoundSign = line.lastIndexOf('#');
 
     if (otherPoundSign > 0) {
@@ -227,8 +243,13 @@ export class FileOutput {
     return this;
   }
 
-  private async addFromRulesetPromise(source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>) {
-    for await (let line of await source) {
+  private async addFromRulesetPromise(source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>, locations?: RuleLocations) {
+    let index = 0;
+    for await (const rawLine of await source) {
+      const lineNumber = locations?.lineNumbers?.[index] ?? index + 1;
+      index++;
+      let line = processLine(rawLine);
+      if (!line || line.charCodeAt(0) === 35) continue;
       const otherPoundSign = line.lastIndexOf('#');
 
       if (otherPoundSign > 0) {
@@ -237,8 +258,15 @@ export class FileOutput {
 
       const splitted = line.split(',');
       const type = splitted[0].toUpperCase();
-      const value = splitted[1];
+      const value = splitted.at(1);
       const arg = splitted[2];
+
+      const location = `${locations?.file ?? this.id}:${lineNumber}`;
+      if (!RULE_TYPES.has(type)) throw new TypeError(`Unknown rule type ${type} at ${location}`);
+      if (!value?.trim()) throw new TypeError(`Missing ${type} value at ${location}`);
+      this.origins[type] ??= [];
+      const origins = this.origins[type];
+      if (origins.length < 3) origins.push({ file: locations?.file ?? `generated:${this.id}`, line: lineNumber, text: line });
 
       switch (type) {
         case 'DOMAIN':
@@ -299,12 +327,12 @@ export class FileOutput {
     }
   }
 
-  addFromRuleset(source: MaybePromise<AsyncIterable<string> | Iterable<string>>) {
+  addFromRuleset(source: MaybePromise<AsyncIterable<string> | Iterable<string>>, locations?: RuleLocations) {
     if (this.pendingPromise) {
-      this.pendingPromise = this.pendingPromise.then(() => this.addFromRulesetPromise(source));
+      this.pendingPromise = this.pendingPromise.then(() => this.addFromRulesetPromise(source, locations));
       return this;
     }
-    this.pendingPromise = this.addFromRulesetPromise(source);
+    this.pendingPromise = this.addFromRulesetPromise(source, locations);
     return this;
   }
 
@@ -437,6 +465,7 @@ export class FileOutput {
 
   private buildStrategyWriteData(domains: string[]): StrategyWriteData {
     return {
+      origins: this.origins,
       domains,
       domainKeywords: Array.from(this.domainKeywords),
       whitelistKeywords: Array.from(this.whitelistKeywords),
@@ -490,7 +519,7 @@ export class FileOutput {
       const domains = childSpan.traceChildSync('dump domain trie', () => this.dumpDomains(), SpanCategory.Compute);
 
       const title = nullthrow(this.title, 'Missing title');
-      const descriptions = nullthrow(this.description, 'Missing description');
+      const descriptions = [...nullthrow(this.description, 'Missing description')];
 
       if (this.dataSource.size) {
         descriptions.push(
@@ -522,13 +551,13 @@ export class FileOutput {
 
         return childSpan.traceWorkerChild(
           'write via output worker',
-          rawSpan => getBuildWorkerFarm().writeOutput(rawSpan, payload)
-        );
+          rawSpan => getBuildWorkerFarm().writeOutput(rawSpan, payload, buildContext())
+        ).then(mergeWorkerValue);
       }
 
       childSpan.traceChildSync('write to strategies', () => this.writeToStrategies(domains), SpanCategory.Compute);
 
-      return childSpan.traceChildAsync('output to disk', (childSpan) => {
+      return childSpan.traceChildAsync('output to disk', async (childSpan) => {
         const promises: Array<Promise<void>> = [];
 
         for (let i = 0, len = this.strategies.length; i < len; i++) {
@@ -547,7 +576,11 @@ export class FileOutput {
           );
         }
 
-        return Promise.all(promises);
+        const result = await settleBuildWork(promises);
+        if (this.strategies.some(strategy => strategy.name === 'singbox')) {
+          await writeRuleMetadata(this.id, this.strategies[0].type, this.buildStrategyWriteData(domains));
+        }
+        return result;
       });
     });
   }

@@ -1,6 +1,5 @@
 import type { JestWorkerFarm } from 'jest-worker';
 import { createWorker } from './worker';
-import { once } from 'foxts/once';
 
 type BuildWorkerModule = typeof import('./build.worker');
 type BuildWorkerFarm = JestWorkerFarm<BuildWorkerModule>;
@@ -26,13 +25,18 @@ const NUM_WORKERS = 3;
  * endBuildWorkerFarm() (idempotent, safe to call unconditionally), otherwise the
  * worker threads keep a standalone task run alive.
  */
-export const getBuildWorkerFarm = once((): BuildWorkerFarm => createWorker<BuildWorkerModule>(require.resolve('./build.worker'), NUM_WORKERS)([
-  'writeOutput',
-  'getPhishingDomains',
-  'getRejectSources',
-  'buildMicrosoftCdn',
-  'buildCdnDownloadConf'
-]), false /* warm manually */);
+let farm: BuildWorkerFarm | undefined;
+
+export function getBuildWorkerFarm(): BuildWorkerFarm {
+  farm ??= createWorker<BuildWorkerModule>(require.resolve('./build.worker'), NUM_WORKERS)([
+    'writeOutput',
+    'getPhishingDomains',
+    'getRejectSources',
+    'buildMicrosoftCdn',
+    'buildCdnDownloadConf'
+  ]);
+  return farm;
+}
 
 /**
  * Boot the farm ahead of time so the thread spin-up overlaps with whatever the
@@ -44,6 +48,7 @@ export function warmBuildWorkerFarm(): void {
 }
 
 export async function endBuildWorkerFarm(): Promise<void> {
-  const farm = getBuildWorkerFarm();
-  await farm.end();
+  const current = farm;
+  farm = undefined;
+  await current?.end();
 }

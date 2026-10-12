@@ -6,10 +6,23 @@ import { SpanCategory } from '../trace';
 import type { Span } from '../trace';
 import { readFileByLine } from './fetch-text-by-line';
 import { writeFile } from './misc';
-import { createCompareSource, fileEqualWithCommentComparator } from 'foxts/compare-source';
 import { extractContentHashFromFile } from './content-hash';
+import { copyBuildFile, previousOutput, recordOutput, reserveOutput, verifiedPreviousOutput } from './build-output';
 
-const fileEqual = createCompareSource(fileEqualWithCommentComparator);
+const MODULE_DATE = /^(#!desc=Last Updated: )\S+/;
+function comparableLine(line: string): string {
+  if (line.startsWith('# Last Updated: ')) return '# Last Updated:';
+  if (line.startsWith('! Last modified: ')) return '! Last modified:';
+  return line.replace(MODULE_DATE, '$1<timestamp>');
+}
+async function fileEqual(lines: string[], input: AsyncIterable<string>): Promise<boolean> {
+  let index = 0;
+  for await (const line of input) {
+    if (index >= lines.length || comparableLine(line) !== comparableLine(lines[index])) return false;
+    index++;
+  }
+  return index === lines.length;
+}
 
 /**
  * The comparison half shared by {@link compareAndWriteFile} and
@@ -18,10 +31,10 @@ const fileEqual = createCompareSource(fileEqualWithCommentComparator);
  * ends up being written.
  */
 async function isPreviousOutputEqual(span: Span, linesA: string[], filePath: string, contentHash: string | null) {
-  // readFileByLine will not include last empty line. So we always pop the linesA for comparison purpose
-  if (linesA.length > 0 && linesA.at(-1) === '') {
-    linesA.pop();
-  }
+  const destination = filePath;
+  filePath = previousOutput(filePath);
+  // Comparison must not mutate content owned by the writer or another output.
+  const comparisonLines = linesA.at(-1) === '' ? linesA.slice(0, -1) : linesA;
 
   const isEqual = await span.traceChildAsync(`compare ${filePath}`, async () => {
     if (!fs.existsSync(filePath)) {
@@ -29,7 +42,9 @@ async function isPreviousOutputEqual(span: Span, linesA: string[], filePath: str
       return false;
     }
 
-    if (contentHash) {
+    const verified = await verifiedPreviousOutput(destination);
+    if (verified === false) return false;
+    if (contentHash && verified === true) {
       const previousHash = await extractContentHashFromFile(filePath);
       if (previousHash) {
         return previousHash === contentHash;
@@ -37,7 +52,7 @@ async function isPreviousOutputEqual(span: Span, linesA: string[], filePath: str
       // previous output predates the content hash marker, fall through to full comparison
     }
 
-    return fileEqual(linesA, readFileByLine(filePath));
+    return fileEqual(comparisonLines, readFileByLine(filePath));
   }, SpanCategory.FsRead);
 
   if (isEqual) {
@@ -52,13 +67,15 @@ async function isPreviousOutputEqual(span: Span, linesA: string[], filePath: str
  * we only write when the actual content differs, and the new `last updated` will
  * be written along with new content.
  *
- * When `contentHash` is provided (and the previous output already embeds a
- * content hash marker), the comparison only reads the first chunk of the
- * previous file. Otherwise it falls back to a full comment-insensitive
- * line-by-line comparison.
+ * A hash marker is used only after validating the previous file's actual bytes
+ * against its manifest. Missing or invalid cache metadata forces regeneration.
+ * Standalone writes compare content, ignoring only explicit timestamp fields.
  */
 export async function compareAndWriteFile(span: Span, linesA: string[], filePath: string, contentHash: string | null = null) {
   if (await isPreviousOutputEqual(span, linesA, filePath, contentHash)) {
+    const previous = previousOutput(filePath);
+    if (previous === filePath) recordOutput(filePath);
+    else await copyBuildFile(previous, filePath, 'writer');
     return;
   }
 
@@ -73,6 +90,9 @@ export async function compareAndWriteFile(span: Span, linesA: string[], filePath
  */
 export async function compareAndWriteFileInWorker(span: Span, linesA: string[], filePath: string, contentHash: string | null = null) {
   if (await isPreviousOutputEqual(span, linesA, filePath, contentHash)) {
+    const previous = previousOutput(filePath);
+    if (previous === filePath) recordOutput(filePath);
+    else await copyBuildFile(previous, filePath, 'writer');
     return;
   }
 
@@ -88,8 +108,12 @@ export function writeFileLines(span: Span, linesA: string[], filePath: string): 
 }
 
 export function writeFileLinesSync(span: Span, linesA: string[], filePath: string): void {
-  span.traceChildSync(`writing ${filePath}`, () => {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, fastStringArrayJoin(linesA, '\n') + '\n');
-  }, SpanCategory.FsWrite);
+  const output = reserveOutput(filePath);
+  try {
+    span.traceChildSync(`writing ${filePath}`, () => {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, fastStringArrayJoin(linesA, '\n') + '\n');
+      output.commit();
+    }, SpanCategory.FsWrite);
+  } finally { output.release(); }
 }

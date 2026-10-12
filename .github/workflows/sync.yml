@@ -6,6 +6,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
+concurrency:
+  group: rulemesh-source-sync
+  cancel-in-progress: false
 jobs:
   sync:
     runs-on: ubuntu-24.04
@@ -34,11 +38,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           revision=$(node -p "require('./sources/registry.json').upstream.revision.slice(0,12)")
-          branch="automation/ruleset-${revision}"
+          overrides=$(git hash-object sources/overrides.json)
+          branch="automation/ruleset-${revision}-${overrides:0:8}"
           git config user.name codingmesh
           git config user.email codingmesh@users.noreply.github.com
-          git switch -c "$branch"
-          git add Source sources
-          git commit -m "chore: sync ruleset sources to ${revision}"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" --title "chore: sync ruleset sources to ${revision}" --body "Updates pinned MetaCubeX rule sources. Review the generated ruleset diff in CI before merging."
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            git fetch origin "$branch"
+            git diff --exit-code FETCH_HEAD -- Source sources
+            candidate_sha=$(git rev-parse FETCH_HEAD)
+          else
+            git switch -c "$branch"
+            git add Source sources
+            git commit -m "chore: sync ruleset sources to ${revision}"
+            git push origin "$branch"
+            candidate_sha=$(git rev-parse HEAD)
+          fi
+          existing_pr=$(gh pr list --base main --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$existing_pr" ]; then
+            gh pr create --base main --head "$branch" --title "chore: sync ruleset sources to ${revision}" --body "Updates pinned MetaCubeX rule sources. Review the generated ruleset diff in CI before merging."
+          fi
+          gh workflow run main.yml --ref "$branch" --field "source_ref=$candidate_sha"

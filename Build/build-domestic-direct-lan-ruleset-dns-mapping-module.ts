@@ -9,52 +9,15 @@ import { compareAndWriteFile } from './lib/create-file';
 import { SpanCategory, task } from './trace';
 import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
-import { once } from 'foxts/once';
 import * as yaml from 'yaml';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR, OUTPUT_MODULES_RULES_DIR, SOURCE_DIR } from './constants/dir';
 import { MihomoNameserverPolicyOutput, RulesetOutput, SurgeOnlyRulesetOutput } from './lib/rules/ruleset';
 import { $$fetch } from './lib/fetch-retry';
+import { createGetDnsMappingRule } from './lib/dns-mapping';
+import { settleBuildWork } from './lib/build-output';
 
-export function createGetDnsMappingRule(allowWildcard: boolean) {
-  const hasWildcard = (domain: string) => {
-    if (domain.includes('*') || domain.includes('?')) {
-      if (!allowWildcard) {
-        throw new TypeError(`Wildcard domain is not supported: ${domain}`);
-      }
-      return true;
-    }
-
-    return false;
-  };
-
-  return (domain: string): string[] => {
-    const results: string[] = [];
-    if (domain[0] === '$') {
-      const d = domain.slice(1);
-      if (hasWildcard(domain)) {
-        results.push(`DOMAIN-WILDCARD,${d}`);
-      } else {
-        results.push(`DOMAIN,${d}`);
-      }
-    } else if (domain[0] === '+') {
-      const d = domain.slice(1);
-      if (hasWildcard(domain)) {
-        results.push(`DOMAIN-WILDCARD,*.${d}`);
-      } else {
-        results.push(`DOMAIN-SUFFIX,${d}`);
-      }
-    } else if (hasWildcard(domain)) {
-      results.push(`DOMAIN-WILDCARD,${domain}`, `DOMAIN-WILDCARD,*.${domain}`);
-    } else {
-      results.push(`DOMAIN-SUFFIX,${domain}`);
-    }
-
-    return results;
-  };
-}
-
-export const getDomesticCdnDomainsRulesetPromise = once(async () => {
+async function getDomesticCdnDomainsRuleset() {
   const domesticCdn = await readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/domestic_cdn.conf'));
   const getDnsMappingRuleWithWildcard = createGetDnsMappingRule(true);
 
@@ -63,9 +26,9 @@ export const getDomesticCdnDomainsRulesetPromise = once(async () => {
   });
 
   return domesticCdn;
-});
+}
 
-export const getDomesticAndDirectDomainsRulesetPromise = once(async () => {
+async function getDomesticAndDirectDomainsRuleset() {
   const domestics = await readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/domestic.conf'));
   const directs = await readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'non_ip/direct.conf'));
   const lans: string[] = [];
@@ -79,7 +42,7 @@ export const getDomesticAndDirectDomainsRulesetPromise = once(async () => {
   });
 
   // Keep legacy subscriptions inclusive of the CDN exceptions.
-  appendArrayInPlace(domestics, await getDomesticCdnDomainsRulesetPromise());
+  appendArrayInPlace(domestics, await getDomesticCdnDomainsRuleset());
 
   Object.values(DIRECTS).forEach(({ domains }) => {
     appendArrayInPlace(directs, domains.flatMap(getDnsMappingRuleWithWildcard));
@@ -92,11 +55,11 @@ export const getDomesticAndDirectDomainsRulesetPromise = once(async () => {
   });
 
   return [domestics, directs, lans] as const;
-});
+}
 
 export const buildDomesticRuleset = task(require.main === module, __filename)(async (span) => {
-  const [domestics, directs, lans] = await getDomesticAndDirectDomainsRulesetPromise();
-  const domesticCdn = await getDomesticCdnDomainsRulesetPromise();
+  const [domestics, directs, lans] = await getDomesticAndDirectDomainsRuleset();
+  const domesticCdn = await getDomesticCdnDomainsRuleset();
 
   // Preserve existing provider IDs, and namespace CDN providers so the same
   // provider can appear in both sources without overwriting its ruleset or DNS policy.
@@ -107,7 +70,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
 
   const dataset: Array<[name: string, mapping: DNSMapping]> = ([DOH_BOOTSTRAP, domesticMappings, DIRECTS, LAN, HOSTS] as const).flatMap(Object.entries);
 
-  return Promise.all([
+  return settleBuildWork([
     new RulesetOutput(span, 'domestic', 'non_ip')
       .withTitle('Sukka\'s Ruleset - Domestic Domains')
       .appendDescription(
@@ -220,7 +183,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         }
       });
 
-      return Promise.all([
+      return settleBuildWork([
         surgeOutput.write(),
         mihomoOutput.write()
       ]);
@@ -417,7 +380,7 @@ async function buildLANCacheRuleset(span: Span) {
   }, []);
 
   const allDomains = (
-    await Promise.all(
+    await settleBuildWork(
       allDomainFiles.map(
         (file) => childSpan.traceChildAsync(
           'download ' + file,
@@ -480,7 +443,7 @@ async function buildLANCacheRuleset(span: Span) {
 
   childSpan.stop();
 
-  return Promise.all([
+  return settleBuildWork([
     surgeOutput.write(),
     mihomoOutput.write()
   ]);

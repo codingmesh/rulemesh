@@ -7,8 +7,8 @@ import { MARKER_DOMAIN } from '../../constants/description';
 import { fastStringArrayJoin } from 'foxts/fast-string-array-join';
 
 interface SingboxHeadlessRule {
-  domain: string[],
-  domain_suffix: string[],
+  domain?: string[],
+  domain_suffix?: string[],
   domain_keyword?: string[],
   domain_regex?: string[],
   source_ip_cidr?: string[],
@@ -33,7 +33,7 @@ export interface SingboxSourceFormat {
  * a 145k-domain ruleset that is several full passes over a multi-megabyte string,
  * plus a final split('\n').
  *
- * Our document shape is fixed (`{version, rules: [rule]}`, rule values are flat
+ * Our document shape is fixed (`{version, rules: [...]}`, rule values are flat
  * arrays of string/number), so we emit the lines directly and only probe as many
  * items as it takes to know a line cannot fit.
  */
@@ -97,9 +97,9 @@ function inlineIfFits(arr: SingboxRuleValue, budget: number): string | null {
   return '[' + fastStringArrayJoin(parts, ', ') + ']';
 }
 
-export function singboxSourceToLines(rule: SingboxHeadlessRule): string[] {
+function singboxRuleToLines(rule: SingboxHeadlessRule): string[] {
   const keys = Object.keys(rule) as Array<keyof SingboxHeadlessRule>;
-  const lines: string[] = ['{', '  "version": 2,', '  "rules": [', '    {'];
+  const lines: string[] = ['    {'];
 
   for (let i = 0, l = keys.length; i < l; i++) {
     const key = keys[i];
@@ -127,7 +127,44 @@ export function singboxSourceToLines(rule: SingboxHeadlessRule): string[] {
     lines.push('      ]' + trailing);
   }
 
-  lines.push('    }', '  ]', '}');
+  lines.push('    }');
+  return lines;
+}
+
+// A headless rule ANDs different match families. Independent source rules must
+// therefore become alternative entries; destination fields share native OR.
+const MATCH_FAMILIES: Array<Array<keyof SingboxHeadlessRule>> = [
+  ['domain', 'domain_suffix', 'domain_keyword', 'domain_regex', 'ip_cidr'],
+  ['source_ip_cidr'],
+  ['source_port', 'source_port_range'],
+  ['port', 'port_range'],
+  ['process_name'],
+  ['process_path'],
+  ['network']
+];
+
+export function singboxSourceToLines(rule: SingboxHeadlessRule): string[] {
+  const rules: SingboxHeadlessRule[] = [];
+  const keys = Object.keys(rule) as Array<keyof SingboxHeadlessRule>;
+  for (let i = 0, len = MATCH_FAMILIES.length; i < len; i++) {
+    const family = MATCH_FAMILIES[i];
+    const entries: Array<[keyof SingboxHeadlessRule, SingboxRuleValue]> = [];
+    for (let j = 0, keyCount = keys.length; j < keyCount; j++) {
+      const key = keys[j];
+      const values = rule[key];
+      if (values && family.includes(key)) entries.push([key, values]);
+    }
+    if (entries.some(([, values]) => values.length)) {
+      rules.push(Object.fromEntries(entries));
+    }
+  }
+  const lines = ['{', '  "version": 2,', '  "rules": ['];
+  for (let i = 0, len = rules.length; i < len; i++) {
+    const ruleLines = singboxRuleToLines(rules[i]);
+    if (i < len - 1) ruleLines[ruleLines.length - 1] += ',';
+    appendArrayInPlace(lines, ruleLines);
+  }
+  lines.push('  ]', '}');
   return lines;
 }
 
@@ -159,11 +196,11 @@ export class SingboxSource extends BaseWriteStrategy {
   withPadding = withIdentityContent;
 
   writeDomain(domain: string): void {
-    this.singbox.domain.push(domain);
+    (this.singbox.domain ??= []).push(domain);
   }
 
   writeDomainSuffix(domain: string): void {
-    this.singbox.domain_suffix.push(domain);
+    (this.singbox.domain_suffix ??= []).push(domain);
   }
 
   writeDomainKeywords(keyword: Set<string>): void {

@@ -9,11 +9,13 @@ import type { TreeType, TreeTypeArray } from './lib/tree-dir';
 import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, PUBLIC_DIR, ROOT_DIR } from './constants/dir';
 import { writeFile } from './lib/misc';
 import { fastStringCompare } from 'foxts/fast-string-compare';
-import type { VoidOrVoidArray } from './lib/misc';
-import picocolors from 'picocolors';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { copyBuildFile, hasOutput, recordInput, settleBuildWork } from './lib/build-output';
+import { renderClientConfigs, clientConfigScript } from './lib/client-config-view';
+import { buildIdentity } from './lib/build-identity';
+import process from 'node:process';
 
 const priorityOrder: Record<'default' | string & {}, number> = {
   LICENSE: 0,
@@ -27,7 +29,6 @@ const priorityOrder: Record<'default' | string & {}, number> = {
   Clash: 70,
   'sing-box': 80,
   Surfboard: 90,
-  LegacyClashPremium: 91,
   Modules: 100,
   Script: 110,
   Mock: 120,
@@ -41,39 +42,31 @@ const closedRootFolders = [
   'Internal'
 ];
 
-const hiddenRootEntries = new Set([
-  'Config',
-  'configs',
-  'rules'
-]);
+const hiddenRootEntries = new Set(['Config']);
 
 const rLeadingSlash = /^\/+/;
 
-async function copyDirContents(srcDir: string, destDir: string, promises: Array<Promise<VoidOrVoidArray>> = []): Promise<Array<Promise<VoidOrVoidArray>>> {
-  for await (const entry of await fsp.opendir(srcDir)) {
+async function copyDirContents(srcDir: string, destDir: string): Promise<void> {
+  const entries = await fsp.readdir(srcDir, { withFileTypes: true });
+  await settleBuildWork(entries.map(async entry => {
     const src = path.join(srcDir, entry.name);
     const dest = path.join(destDir, entry.name);
     if (entry.isDirectory()) {
-      console.warn(picocolors.red('[build public] cant copy directory'), src);
-    } else {
-      promises.push(fsp.copyFile(src, dest, fs.constants.COPYFILE_FICLONE));
+      await copyDirContents(src, dest);
+    } else if (!hasOutput(dest)) {
+      await copyBuildFile(src, dest, 'buildPublic static assets');
     }
-  }
-
-  return promises;
+  }));
 }
 
 export const buildPublic = task(require.main === module, __filename)(async (span) => {
+  const identity = await buildIdentity();
+  recordInput({ source: `RuleMesh code tree (${identity.commit}${identity.dirty ? ', working tree' : ''})`, role: 'source', sha256: identity.sha256 });
   await span.traceChild('copy rest of the files', SpanCategory.FsWrite).traceAsyncFn(async () => {
-    const p: Array<Promise<any>> = [];
-
-    fs.mkdirSync(OUTPUT_MODULES_DIR, { recursive: true });
-    p.push(copyDirContents(path.join(ROOT_DIR, 'Modules'), OUTPUT_MODULES_DIR, p));
-
-    fs.mkdirSync(OUTPUT_MOCK_DIR, { recursive: true });
-    p.push(copyDirContents(path.join(ROOT_DIR, 'Mock'), OUTPUT_MOCK_DIR, p));
-
-    await Promise.all(p);
+    await settleBuildWork([
+      copyDirContents(path.join(ROOT_DIR, 'Modules'), OUTPUT_MODULES_DIR),
+      copyDirContents(path.join(ROOT_DIR, 'Mock'), OUTPUT_MOCK_DIR)
+    ]);
   });
 
   const tree = await span
@@ -81,7 +74,7 @@ export const buildPublic = task(require.main === module, __filename)(async (span
     .traceChild('generate index.html', SpanCategory.FsRead)
     .traceAsyncFn(() => treeDir(PUBLIC_DIR));
 
-  return Promise.all([
+  return settleBuildWork([
     compareAndWriteFile(
       span,
       appendArrayInPlace(
@@ -119,9 +112,10 @@ export const buildPublic = task(require.main === module, __filename)(async (span
     ),
     writeFile(path.join(PUBLIC_DIR, '.nojekyll'), ''),
     writeFile(path.join(PUBLIC_DIR, '.RULEMESH_RULESET_SERVER'), 'SUKKAW_SURGE_BASED\n'),
-    fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
-    fsp.copyFile(path.join(ROOT_DIR, 'NOTICE'), path.join(PUBLIC_DIR, 'NOTICE')),
-    fsp.copyFile(path.join(ROOT_DIR, 'THIRD_PARTY_NOTICES.md'), path.join(PUBLIC_DIR, 'THIRD_PARTY_NOTICES.md')),
+    writeFile(path.join(PUBLIC_DIR, 'deploy-check.txt'), `${process.env.GITHUB_SHA ?? (identity.dirty ? `working-tree:${identity.sha256}` : identity.commit)}\n`),
+    copyBuildFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE'), 'buildPublic license'),
+    copyBuildFile(path.join(ROOT_DIR, 'NOTICE'), path.join(PUBLIC_DIR, 'NOTICE'), 'buildPublic attribution'),
+    copyBuildFile(path.join(ROOT_DIR, 'THIRD_PARTY_NOTICES.md'), path.join(PUBLIC_DIR, 'THIRD_PARTY_NOTICES.md'), 'buildPublic attribution'),
     writeFile(path.join(PUBLIC_DIR, 'index.html'), generateSiteHtml(tree))
   ]);
 });
@@ -130,7 +124,7 @@ const prioritySorter = (a: TreeType, b: TreeType) => ((priorityOrder[a.name] || 
 
 export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: string[] = [], hrefPrefix = ''): string {
   let result = '';
-  tree.sort(prioritySorter);
+  tree = [...tree].sort(prioritySorter);
 
   for (let i = 0, len = tree.length; i < len; i++) {
     const entry = tree[i];
@@ -724,7 +718,7 @@ function generateSiteHtml(tree: TreeTypeArray) {
       }
       .site-nav { display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:2.5rem }
       .site-nav a, .client-switch button { border:1px solid var(--muted-border-color); border-radius:.5rem; color:var(--color); padding:.5rem .8rem; text-decoration:none; background:transparent; cursor:pointer }
-      .site-nav a[aria-current=page], .client-switch button[aria-selected=true] { background:var(--primary); border-color:var(--primary); color:var(--primary-inverse) }
+      .site-nav a[aria-current=page], .client-switch button[aria-selected=true] { background:#08749d; border-color:#08749d; color:#fff }
       [data-view][hidden], [data-client-panel][hidden] { display:none }
       .intro { max-width:48rem; color:var(--color) }
       .entry-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:1rem; margin:2rem 0 }
@@ -732,13 +726,13 @@ function generateSiteHtml(tree: TreeTypeArray) {
       .entry h2 { margin-bottom:.5rem }
       .client-switch { display:flex; flex-wrap:wrap; gap:.5rem; margin:1.5rem 0 }
       .actions { display:flex; flex-wrap:wrap; gap:.65rem; margin:1rem 0 }
-      .actions a, .actions button { border:0; border-radius:.5rem; background:var(--primary); color:var(--primary-inverse); padding:.55rem .85rem; text-decoration:none }
+      .actions a, .actions button { border:0; border-radius:.5rem; background:#08749d; color:#fff; padding:.55rem .85rem; text-decoration:none }
       .actions a.secondary, .actions button.secondary { background:var(--secondary); color:var(--secondary-inverse) }
       .artifact-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(16rem,1fr)); gap:1rem; margin:1rem 0 1.5rem }
       .artifact { border:1px solid var(--muted-border-color); border-radius:.65rem; padding:1rem }
       .artifact h4 { margin:0 0 .4rem }
       .artifact p { margin:.35rem 0 }
-      .path { display:block; color:var(--muted-color); font-size:.85rem }
+      .path { display:block; color:var(--color); font-size:.85rem }
       .validated { color:var(--ins-color); font-weight:700 }
       .import-composed { border-top:1px solid var(--muted-border-color); margin-top:1.25rem; padding-top:1rem }
       .import-composed label { display:block; font-weight:700 }
@@ -751,11 +745,11 @@ function generateSiteHtml(tree: TreeTypeArray) {
         <main class="container">
           <h1>RuleMesh</h1>
           <nav class="site-nav" aria-label="RuleMesh sections"><a href="#overview" data-nav="overview">Overview</a><a href="#rules" data-nav="rules">Rulesets</a><a href="#configs" data-nav="configs">Client Configs</a><a href="https://github.com/codingmesh/rulemesh">Source</a></nav>
-          <section id="overview" data-view="overview"><p class="intro">Maintained multi-client rulesets and configurations for Shadowrocket, Surge, Mihomo and sing-box, built directly on SukkaW/Surge.</p><div class="entry-grid"><article class="entry"><h2>Rulesets</h2><p>Browse every generated client format in the inherited Sukka directory.</p><p><a href="#rules">Open rulesets</a></p></article><article class="entry"><h2>Client configs</h2><p>Import Shadowrocket directly or compose a configuration with your existing nodes.</p><p><a href="#configs">Open configs</a></p></article><article class="entry"><h2>Maintenance</h2><p>Pinned sources, custom overrides, native validation and reproducible publication.</p><p><a href="https://github.com/codingmesh/rulemesh">Open source</a></p></article></div><p>Last Build: ${new Date().toISOString()}</p><p>Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="LICENSE">AGPL-3.0</a></p></section>
+          <section id="overview" data-view="overview"><p class="intro">Maintained multi-client rulesets and configurations for Shadowrocket, Surge, Mihomo and sing-box, built directly on SukkaW/Surge.</p><div class="entry-grid"><article class="entry"><h2>Rulesets</h2><p>Browse every generated client format in the inherited Sukka directory.</p><p><a href="#rules">Open rulesets</a></p></article><article class="entry"><h2>Client configs</h2><p>Import Shadowrocket directly or compose a configuration with your existing nodes.</p><p><a href="#configs">Open configs</a></p></article><article class="entry"><h2>Maintenance</h2><p>Pinned sources, custom overrides, native validation and reproducible publication.</p><p><a href="https://github.com/codingmesh/rulemesh">Open source</a></p></article></div><p><a href="Internal/artifact-manifest.json">Build inputs and artifact hashes</a></p><p>Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="LICENSE">AGPL-3.0</a></p></section>
           <section id="rules" data-view="rules" hidden><h2>Rulesets</h2><ul class="tree">${treeHtml(tree, 0, closedRootFolders)}</ul></section>
-          <section id="configs" data-view="configs" hidden><h2>Client Configs</h2><p>Every published configuration artifact is listed here. Switching clients only changes focus; credentials and private node definitions are never hosted.</p><p>Every card can open its client, copy the public URL or show the file. Shadowrocket profiles are ready to use with existing client nodes. Surge, Mihomo and sing-box files contain a <code>REPLACE-ME</code> placeholder: direct import is useful for inspection, while a working profile must first be composed with your node base.</p><p>Choose a default node once, then adjust AI, social and streaming families or override individual services such as Anthropic, OpenAI, Telegram, YouTube and Netflix. Standard profiles contain no advertising rules; advertising profiles evaluate rejection before general routing.</p><div class="client-switch" role="tablist"><button type="button" data-client="shadowrocket" aria-selected="true">Shadowrocket</button><button type="button" data-client="surge" aria-selected="false">Surge</button><button type="button" data-client="mihomo" aria-selected="false">Clash Verge / Mihomo</button><button type="button" data-client="singbox" aria-selected="false">sing-box</button></div><div data-client-panel="shadowrocket"><h3>Shadowrocket</h3><p class="validated">Validated: URL import, update, all referenced rule resources and native rule matching.</p><div class="artifact-list"><article class="artifact"><h4>Standard</h4><span class="path">Config/Shadowrocket/standard.conf</span><div class="actions"><a href="shadowrocket://config/add/https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf">Open &amp; Import in Shadowrocket</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf">Copy URL</button><a class="secondary" href="Config/Shadowrocket/standard.conf">View Config</a><a class="secondary" href="Config/Shadowrocket/standard.svg">QR</a></div></article><article class="artifact"><h4>Advertising</h4><span class="path">Config/Shadowrocket/advertising.conf</span><div class="actions"><a href="shadowrocket://config/add/https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.conf">Open &amp; Import in Shadowrocket</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.conf">Copy URL</button><a class="secondary" href="Config/Shadowrocket/advertising.conf">View Config</a><a class="secondary" href="Config/Shadowrocket/advertising.svg">QR</a></div></article></div><p>Rules: <code>Shadowrocket/{domainset,non_ip,ip}/</code></p></div><div data-client-panel="surge" hidden><h3>Surge</h3><p class="validated">Validated with Surge CLI for standard and advertising variants.</p><div class="artifact-list"><article class="artifact"><h4>Standard</h4><span class="path">Config/surge/standard.conf</span><div class="actions"><a href="surge:///install-config?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fsurge%2Fstandard.conf">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/surge/standard.conf">Copy URL</button><a class="secondary" href="Config/surge/standard.conf">View Template</a></div></article><article class="artifact"><h4>Advertising</h4><span class="path">Config/surge/advertising.conf</span><div class="actions"><a href="surge:///install-config?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fsurge%2Fadvertising.conf">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/surge/advertising.conf">Copy URL</button><a class="secondary" href="Config/surge/advertising.conf">View Template</a></div></article></div><p><code>pnpm run config -- compose surge --nodes /absolute/path/base.conf</code></p><div class="import-composed" data-import-client="surge"><h4>Import composed config</h4><label>Composed HTTPS config URL<input type="url" inputmode="url" placeholder="https://example.com/rulemesh.conf"></label><button type="button" data-import-open>Open &amp; Import in Surge</button><p class="import-error" aria-live="polite"></p></div><p>Rules: <code>List/{domainset,non_ip,ip}/</code></p></div><div data-client-panel="mihomo" hidden><h3>Clash Verge Rev / Mihomo</h3><p class="validated">Validated with Mihomo 1.19.32, domain MRS compilation and loopback routing.</p><div class="artifact-list"><article class="artifact"><h4>Standard</h4><span class="path">Config/mihomo/standard.yaml</span><div class="actions"><a href="clash://install-config?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fmihomo%2Fstandard.yaml">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/mihomo/standard.yaml">Copy URL</button><a class="secondary" href="Config/mihomo/standard.yaml">View Template</a></div></article><article class="artifact"><h4>Advertising</h4><span class="path">Config/mihomo/advertising.yaml</span><div class="actions"><a href="clash://install-config?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fmihomo%2Fadvertising.yaml">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/mihomo/advertising.yaml">Copy URL</button><a class="secondary" href="Config/mihomo/advertising.yaml">View Template</a></div></article></div><p><code>pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml</code></p><div class="import-composed" data-import-client="mihomo"><h4>Import composed config</h4><label>Composed HTTPS config URL<input type="url" inputmode="url" placeholder="https://example.com/rulemesh.yaml"></label><button type="button" data-import-open>Open &amp; Import in Clash Verge Rev</button><p class="import-error" aria-live="polite"></p></div><p>Rules: <code>Clash/{domainset,non_ip,ip}/</code></p></div><div data-client-panel="singbox" hidden><h3>sing-box</h3><p class="validated">Validated with sing-box 1.14.3, complete SRS compilation and loopback routing.</p><div class="artifact-list"><article class="artifact"><h4>Standard</h4><span class="path">Config/singbox/standard.json</span><div class="actions"><a href="sing-box://import-remote-profile?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fsingbox%2Fstandard.json#RuleMesh%20Standard">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/singbox/standard.json">Copy URL</button><a class="secondary" href="Config/singbox/standard.json">View Template</a></div></article><article class="artifact"><h4>Advertising</h4><span class="path">Config/singbox/advertising.json</span><div class="actions"><a href="sing-box://import-remote-profile?url=https%3A%2F%2Fcodingmesh.github.io%2Fruleset%2FConfig%2Fsingbox%2Fadvertising.json#RuleMesh%20Advertising">Open &amp; Import</a><button class="secondary" type="button" data-copy-url="https://codingmesh.github.io/ruleset/Config/singbox/advertising.json">Copy URL</button><a class="secondary" href="Config/singbox/advertising.json">View Template</a></div></article></div><p><code>pnpm run config -- compose singbox --nodes /absolute/path/base.json</code></p><div class="import-composed" data-import-client="singbox"><h4>Import composed config</h4><label>Composed HTTPS config URL<input type="url" inputmode="url" placeholder="https://example.com/rulemesh.json"></label><button type="button" data-import-open>Open &amp; Import in sing-box</button><p class="import-error" aria-live="polite"></p></div><p>Rules: <code>sing-box/{domainset,non_ip,ip}/</code></p></div><p><a href="Config/README.md">Configuration manifest</a> · <a href="Config/capability-gaps.json">Capability gaps</a></p></section>
+          ${renderClientConfigs()}
         </main>
-        <script>const views=[...document.querySelectorAll('[data-view]')],nav=[...document.querySelectorAll('[data-nav]')];function showView(){const name=location.hash.slice(1)||'overview';for(const view of views)view.hidden=view.dataset.view!==name;for(const link of nav)link.setAttribute('aria-current',link.dataset.nav===name?'page':'false')}addEventListener('hashchange',showView);showView();const clientButtons=[...document.querySelectorAll('[data-client]')],clientPanels=[...document.querySelectorAll('[data-client-panel]')];for(const button of clientButtons)button.addEventListener('click',()=>{for(const candidate of clientButtons)candidate.setAttribute('aria-selected',String(candidate===button));for(const panel of clientPanels)panel.hidden=panel.dataset.clientPanel!==button.dataset.client});const importSchemes={surge:url=>'surge:///install-config?url='+encodeURIComponent(url),mihomo:url=>'clash://install-config?url='+encodeURIComponent(url),singbox:url=>'sing-box://import-remote-profile?url='+encodeURIComponent(url)+'#RuleMesh'};async function copyUrl(button){const value=button.dataset.copyUrl;try{await navigator.clipboard.writeText(value)}catch{const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();document.execCommand('copy');field.remove()}const label=button.textContent;button.textContent='Copied';setTimeout(()=>button.textContent=label,1500)}for(const button of document.querySelectorAll('[data-copy-url]'))button.addEventListener('click',()=>void copyUrl(button));for(const form of document.querySelectorAll('[data-import-client]'))form.querySelector('[data-import-open]').addEventListener('click',()=>{const input=form.querySelector('input'),error=form.querySelector('.import-error');try{const url=new URL(input.value);if(url.protocol!=='https:')throw new Error('Use an HTTPS URL');error.textContent='';location.href=importSchemes[form.dataset.importClient](url.href)}catch(reason){error.textContent=reason instanceof Error?reason.message:'Invalid configuration URL'}})</script>
+        <script>const views=[...document.querySelectorAll('[data-view]')],nav=[...document.querySelectorAll('[data-nav]')];function showView(){const name=location.hash.slice(1)||'overview';for(const view of views)view.hidden=view.dataset.view!==name;for(const link of nav)link.setAttribute('aria-current',link.dataset.nav===name?'page':'false')}addEventListener('hashchange',showView);showView();${clientConfigScript()}</script>
       </body>
     </html>
   `;

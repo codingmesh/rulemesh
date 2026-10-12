@@ -8,7 +8,8 @@ import type { Headers as TarEntryHeaders } from 'tar-fs';
 import zlib from 'node:zlib';
 import undici from 'undici';
 import picocolors from 'picocolors';
-import { PUBLIC_DIR } from './constants/dir';
+import { CACHE_DIR } from './constants/dir';
+import { buildContext } from './lib/build-output';
 import { requestWithLog } from './lib/fetch-retry';
 import { isDirectoryEmptySync } from './lib/misc';
 import { isCI } from 'ci-info';
@@ -16,8 +17,9 @@ import { isCI } from 'ci-info';
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/codingmesh/ruleset/tar.gz/main';
 
 export const downloadPreviousBuild = task(require.main === module, __filename)(async (span) => {
-  if (fs.existsSync(PUBLIC_DIR) && !isDirectoryEmptySync(PUBLIC_DIR)) {
-    console.log(picocolors.blue('Public directory exists, skip downloading previous build'));
+  const directory = buildContext()?.previous ?? process.env.RULEMESH_PREVIOUS_DIR ?? path.join(CACHE_DIR, 'previous-build');
+  if (fs.existsSync(directory) && !isDirectoryEmptySync(directory)) {
+    console.log(picocolors.blue('Previous input directory exists, skip downloading'));
     return;
   }
 
@@ -72,7 +74,7 @@ export const downloadPreviousBuild = task(require.main === module, __filename)(a
       respBody,
       zlib.createGunzip(),
       tarExtract(
-        PUBLIC_DIR,
+        directory,
         {
           ignore(_: string, header?: TarEntryHeaders) {
             if (header) {

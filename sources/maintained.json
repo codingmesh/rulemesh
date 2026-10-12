@@ -1,6 +1,28 @@
 {
   "schemaVersion": 1,
+  "manual": [],
+  "inherited": {
+    "revision": "6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62",
+    "license": "AGPL-3.0",
+    "maintenance": "Manual downstream maintenance of adopted Sukka sources; no automatic upstream overwrite.",
+    "paths": [
+      "Source/domainset/cdn.conf", "Source/domainset/download.conf", "Source/domainset/game-download.conf", "Source/domainset/icloud_private_relay.conf",
+      "Source/domainset/reject.conf", "Source/domainset/reject_extra.conf", "Source/domainset/speedtest.conf",
+      "Source/ip/ai.conf", "Source/ip/apple_services.conf", "Source/ip/badboy_asn.ts", "Source/ip/cdn.conf", "Source/ip/domestic.conf", "Source/ip/download.conf", "Source/ip/lan.conf", "Source/ip/neteasemusic.conf", "Source/ip/reject.conf", "Source/ip/telegram_asn.conf",
+      "Source/non_ip/ai.conf", "Source/non_ip/apple_cn.conf", "Source/non_ip/apple_intelligence.conf", "Source/non_ip/apple_services.conf", "Source/non_ip/cdn.conf", "Source/non_ip/cloudmounter.ts", "Source/non_ip/direct.conf", "Source/non_ip/direct.ts",
+      "Source/non_ip/domestic.conf", "Source/non_ip/domestic.ts", "Source/non_ip/domestic_cdn.conf", "Source/non_ip/domestic_cdn.ts", "Source/non_ip/download.conf", "Source/non_ip/global.ts", "Source/non_ip/microsoft.conf", "Source/non_ip/neteasemusic.conf",
+      "Source/non_ip/reject-drop.conf", "Source/non_ip/reject-no-drop.conf", "Source/non_ip/reject-url-regex.conf", "Source/non_ip/reject.conf", "Source/non_ip/sogouinput.conf", "Source/non_ip/telegram.conf", "Source/stream.ts"
+    ]
+  },
   "files": [
+    {
+      "path": "Source/ip/china.conf",
+      "source": "MetaCubeX/meta-rules-dat",
+      "revision": "83c8208bdfae92b1caaa29745f51f233b6f1847e",
+      "sourcePath": "geo/geoip/cn.list",
+      "license": "GPL-3.0",
+      "transformation": "Pinned IPv4 and IPv6 CIDRs with resolve-allowed matching, after service and private rules; manual snapshot updates through reviewed changes."
+    },
     {
       "path": "Source/domainset/private.conf",
       "source": "SukkaLab/ruleset.skk.moe",

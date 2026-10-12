@@ -23,10 +23,8 @@ import { CACHE_DIR } from '../constants/dir';
 import { isAbortErrorLike } from 'foxts/abort-error';
 import { isErrorLikeObject } from 'foxts/extract-error-message';
 import { wireTapInterceptor, countCacheableRequest } from './download-wire-stats';
-
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
+import { createHash } from 'node:crypto';
+import { assertBuildActive, buildContext, recordInput } from './build-output';
 
 /**
  * Origins like filters.adtidy.org (Qrator CDN) send Last-Modified/ETag with no
@@ -53,7 +51,8 @@ const stripCdnStalenessHeaders: Dispatcher.DispatcherComposeInterceptor = dispat
   onResponseError: (...args) => handler.onResponseError?.(...args)
 });
 
-const agent = new Agent({
+// eslint-disable-next-line antfu/top-level-function -- retain the inherited dispatcher composition in one lazy expression
+const createFetchAgent = () => new Agent({
   allowH2: false
 }).compose(
   interceptors.dns({
@@ -185,7 +184,21 @@ const agent = new Agent({
   }
 );
 
-export { agent as fetchAgent };
+let agent: ReturnType<typeof createFetchAgent> | undefined;
+
+export function getFetchAgent() {
+  if (!agent) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    agent = createFetchAgent();
+  }
+  return agent;
+}
+
+export async function closeFetchAgent(): Promise<void> {
+  const current = agent;
+  agent = undefined;
+  await current?.close();
+}
 
 export interface FetchResponseProgress {
   onResponseStart?: (contentEncoding: string | null) => void,
@@ -194,7 +207,7 @@ export interface FetchResponseProgress {
 }
 
 function createResponseProgressDispatcher(progress: FetchResponseProgress): Dispatcher {
-  return agent.compose(dispatch => (opts, handler) => dispatch(opts, {
+  return getFetchAgent().compose(dispatch => (opts, handler) => dispatch(opts, {
     onRequestStart: (...args) => handler.onRequestStart?.(...args),
     onRequestUpgrade: (...args) => handler.onRequestUpgrade?.(...args),
     onResponseStart(controller, statusCode, headers, statusMessage) {
@@ -232,7 +245,7 @@ export class ResponseError<T extends UndiciResponseData | Response> extends Erro
 
   readonly url: string;
 
-  constructor(public readonly res: T, public readonly info: RequestInfo, ...args: any[]) {
+  constructor(public readonly res: T, public readonly info: RequestInfo, ...args: unknown[]) {
     const statusCode = 'statusCode' in res ? res.statusCode : res.status;
     super('HTTP ' + statusCode + ' ' + args.map(_ => inspect(_)).join(' '));
 
@@ -261,10 +274,11 @@ export async function $$fetch(
   init: RequestInit = defaultRequestInit,
   progress?: FetchResponseProgress
 ) {
-  init.dispatcher = progress == null ? agent : createResponseProgressDispatcher(progress);
+  assertBuildActive();
+  const requestInit = { ...init, dispatcher: progress == null ? getFetchAgent() : createResponseProgressDispatcher(progress) };
 
   try {
-    const res = await undici.fetch(url, init);
+    const res = await undici.fetch(url, requestInit);
     if (res.status >= 400) {
       throw new ResponseError(res, url);
     }
@@ -273,7 +287,26 @@ export async function $$fetch(
       throw new ResponseError(res, url);
     }
 
-    return res;
+    if (!buildContext() || !res.body) return res;
+    const hash = createHash('sha256');
+    const source = new URL(res.url);
+    source.username = '';
+    source.password = '';
+    source.search = '';
+    source.hash = '';
+    const body = res.body.pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        assertBuildActive();
+        hash.update(chunk);
+        controller.enqueue(chunk);
+      },
+      flush() {
+        recordInput({ source: source.href, role: 'dynamic', sha256: hash.digest('hex'), lastModified: res.headers.get('last-modified') ?? undefined });
+      }
+    }));
+    const monitored = new undici.Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
+    Object.defineProperty(monitored, 'url', { value: res.url });
+    return monitored;
   } catch (err: unknown) {
     if (isAbortErrorLike(err)) {
       console.log(picocolors.gray('[fetch abort]'), url);
@@ -327,7 +360,7 @@ export async function fetchForDoH(input: RequestInfo, _init?: RequestInit) {
 
       referrer: '',
       referrerPolicy: 'no-referrer',
-      dispatcher: agent
+      dispatcher: getFetchAgent()
     });
   }
 
@@ -339,11 +372,10 @@ export async function fetchForDoH(input: RequestInfo, _init?: RequestInit) {
 
 /** @deprecated -- undici.requests doesn't support gzip/br/deflate, and has difficulty w/ undidi cache */
 export async function requestWithLog(url: string, opt?: Parameters<typeof undici.request>[1]) {
-  opt ??= {};
-  opt.dispatcher = agent;
+  const requestOptions = { ...opt, dispatcher: getFetchAgent() };
 
   try {
-    const res = await undici.request(url, opt);
+    const res = await undici.request(url, requestOptions);
     if (res.statusCode >= 400) {
       throw new ResponseError(res, url);
     }

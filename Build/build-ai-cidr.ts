@@ -6,10 +6,9 @@ import { $$fetch } from './lib/fetch-retry';
 import { readFileIntoProcessedArray } from './lib/fetch-text-by-line';
 import { RulesetOutput } from './lib/rules/ruleset';
 import { SpanCategory, task } from './trace';
+import { settleBuildWork } from './lib/build-output';
 
 const OPENAI_VOICE_IP_URL = 'https://openai.com/chatgpt-voice.json';
-
-const localAIIPRulesetPromise = readFileIntoProcessedArray(path.join(SOURCE_DIR, 'ip/ai.conf'));
 
 function parseOpenAIVoiceJSON(data: unknown) {
   if (
@@ -69,10 +68,13 @@ function parseOpenAIVoiceJSON(data: unknown) {
 }
 
 export const buildAICIDR = task(require.main === module, __filename)(async (span) => {
-  const { cidr4, cidr6, lastUpdated } = await span.traceChildAsync('get OpenAI Voice IP ranges', async () => {
-    const response = await $$fetch(OPENAI_VOICE_IP_URL);
-    return parseOpenAIVoiceJSON(await response.json());
-  }, SpanCategory.Network);
+  const [localRules, { cidr4, cidr6, lastUpdated }] = await settleBuildWork([
+    readFileIntoProcessedArray(path.join(SOURCE_DIR, 'ip/ai.conf')),
+    span.traceChildAsync('get OpenAI Voice IP ranges', async () => {
+      const response = await $$fetch(OPENAI_VOICE_IP_URL);
+      return parseOpenAIVoiceJSON(await response.json());
+    }, SpanCategory.Network)
+  ]);
 
   return new RulesetOutput(span, 'ai', 'ip')
     .withTitle('Sukka\'s Ruleset - AI IP CIDR')
@@ -83,7 +85,7 @@ export const buildAICIDR = task(require.main === module, __filename)(async (span
     )
     // .withDate(lastUpdated) // With local source, we no longer use the upstream date for file date
     .appendDataSource(`${OPENAI_VOICE_IP_URL} (last updated: ${lastUpdated.toISOString()})`)
-    .addFromRuleset(localAIIPRulesetPromise)
+    .addFromRuleset(localRules)
     .bulkAddCIDR4NoResolve(cidr4)
     .bulkAddCIDR6NoResolve(cidr6)
     .write();

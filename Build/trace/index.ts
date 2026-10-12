@@ -1,5 +1,4 @@
 import { isCI } from 'ci-info';
-import { noop } from 'foxts/noop';
 import { basename, extname } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
@@ -11,6 +10,9 @@ import type { WireStatsSnapshot } from '../lib/download-wire-stats';
 import { SPAN_STATUS_END, SPAN_STATUS_START, SpanCategory } from './types';
 import type { RawSpan, TraceResult } from './types';
 import { adjustTraceTimestamps, printBuildReport } from './report';
+import { endBuildWorkerFarm } from '../lib/build-worker-farm';
+import { closeFetchAgent } from '../lib/fetch-retry';
+import { assertBuildActive } from '../lib/build-output';
 
 export { SPAN_STATUS_START, SPAN_STATUS_END, SpanCategory, UNCATEGORIZED } from './types';
 export type { RawSpan, TraceResult, ReportedSpanCategory, SpanEventLoopUtilization } from './types';
@@ -139,61 +141,62 @@ export const dummySpan = createSpan('dummy');
 export function task(importMetaMain: boolean, importMetaPath: string) {
   return (fn: (span: Span, onCleanup: (cb: () => Promise<void> | void) => void) => Promise<unknown>, customName?: string) => {
     const taskName = customName ?? basename(importMetaPath, extname(importMetaPath));
-    let cleanup: () => Promise<void> | void = noop;
-    const onCleanup = (cb: () => void) => {
-      cleanup = cb;
-    };
+    async function run(parentSpan?: Span | null): Promise<TraceResult> {
+      assertBuildActive();
+      const runSpan = parentSpan ? parentSpan.traceChild(taskName) : createSpan(taskName);
+      const cleanups: Array<() => Promise<void> | void> = [];
+      let failed = false;
+      let failure: unknown;
+      try {
+        await fn(runSpan, callback => cleanups.push(callback));
+      } catch (error) {
+        failed = true;
+        failure = error;
+      } finally {
+        runSpan.stop();
+        // Resource teardown follows reverse acquisition order. Every callback is
+        // awaited, even if an earlier callback or the task itself failed.
+        for (let i = cleanups.length - 1; i >= 0; i--) {
+          try {
+            // eslint-disable-next-line no-await-in-loop -- resources must close in reverse acquisition order
+            await cleanups[i]();
+          } catch (error) {
+            if (failed) console.error(`Cleanup failed for ${taskName}:`, error);
+            else { failed = true; failure = error; }
+          }
+        }
+        runSpan.traceResult.timeOrigin = performance.timeOrigin;
+      }
+      if (failed) throw failure;
+      return runSpan.traceResult;
+    }
 
     if (importMetaMain) {
       const eluAtStart = performance.eventLoopUtilization();
       const cpuAtStart = process.cpuUsage();
-      const innerSpan = createSpan(taskName);
-
-      process.on('uncaughtException', (error) => {
-        console.error('Uncaught exception:', error);
-        process.exit(1);
-      });
-      process.on('unhandledRejection', (reason) => {
-        console.error('Unhandled rejection:', reason);
-        process.exit(1);
-      });
-
-      innerSpan.traceChildAsync('dummy', (childSpan) => fn(childSpan, onCleanup)).finally(() => {
-        innerSpan.stop();
-        innerSpan.traceResult.timeOrigin = performance.timeOrigin;
-        printBuildReport([innerSpan.traceResult], {
+      void run().then(trace => {
+        printBuildReport([trace], {
           elu: performance.eventLoopUtilization(eluAtStart),
           cpu: process.cpuUsage(cpuAtStart)
         });
-        process.nextTick(whyIsNodeRunning);
-        process.nextTick(() => process.exit(0));
+      }).catch(error => {
+        console.error(error);
+        process.exitCode = 1;
+      }).finally(async () => {
+        // Only an independently executed task owns these shared resources.
+        const results = await Promise.allSettled([
+          endBuildWorkerFarm(), closeFetchAgent()
+        ]);
+        for (let i = 0, len = results.length; i < len; i++) {
+          const result = results[i];
+          if (result.status === 'rejected') {
+            console.error(result.reason);
+            process.exitCode = 1;
+          }
+        }
       });
     }
-
-    let runSpan: Span;
-    async function run(parentSpan?: Span | null): Promise<TraceResult> {
-      if (parentSpan) {
-        runSpan = parentSpan.traceChild(taskName);
-      } else {
-        runSpan = createSpan(taskName);
-      }
-
-      try {
-        await fn(runSpan, onCleanup);
-      } finally {
-        runSpan.stop();
-        cleanup();
-      }
-
-      // A task may run on a worker thread (via jest-worker) and hand its trace
-      // back to the main thread, which then needs this to re-align the clock.
-      runSpan.traceResult.timeOrigin = performance.timeOrigin;
-      return runSpan.traceResult;
-    }
-
-    return Object.assign(run, {
-      getInternalTraceResult: () => runSpan.traceResult
-    });
+    return run;
   };
 }
 

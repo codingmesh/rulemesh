@@ -4,9 +4,8 @@ import { SHARED_DESCRIPTION } from './constants/description';
 import { DomainsetOutput } from './lib/rules/domainset';
 import { $$fetch } from './lib/fetch-retry';
 
-const getAppleCdnDomainsPromise = $$fetch('https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/apple.china.conf').then(parseFelixDnsmasqFromResp);
-
 export const buildAppleCdn = task(require.main === module, __filename)(async (span) => {
+  const getAppleCdnDomainsPromise = $$fetch('https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/apple.china.conf').then(parseFelixDnsmasqFromResp);
   const res: string[] = await span.traceChildPromise('get apple cdn domains', getAppleCdnDomainsPromise, SpanCategory.Network);
 
   return new DomainsetOutput(span, 'apple_cdn')

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import type { PathLike } from 'node:fs';
 import fsp from 'node:fs/promises';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { assertBuildActive, reserveOutput } from './build-output';
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -23,11 +24,14 @@ export function mkdirp(dir: string) {
 }
 
 export const writeFile: Write = async (destination: string, input, dir = dirname(destination)): Promise<void> => {
-  const p = mkdirp(dir);
-  if (p) {
-    await p;
-  }
-  return fsp.writeFile(destination, input, { encoding: 'utf-8' });
+  const output = reserveOutput(destination);
+  try {
+    const p = mkdirp(dir);
+    if (p) await p;
+    assertBuildActive();
+    await fsp.writeFile(destination, input, { encoding: 'utf-8' });
+    output.commit();
+  } finally { output.release(); }
 };
 
 export function withBannerArray(title: string, description: string[] | readonly string[], date: Date, content: string[], contentHash: string | null = null) {

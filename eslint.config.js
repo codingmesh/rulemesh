@@ -22,7 +22,7 @@ module.exports = require('eslint-config-sukka').sukka({
     'sukka/unicorn/filename-case': 'off'
   }
 }, {
-  files: ['./Build/native-routing.ts', './Build/acceptance.ts', './Build/sync-sources.ts'],
+  files: ['./Build/native-routing.ts'],
   rules: {
     '@stylistic/no-confusing-arrow': 'off',
     '@typescript-eslint/array-type': 'off',

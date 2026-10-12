@@ -40,18 +40,13 @@ export type ProcessFilterRulesResult = Record<
   filterRulesUrl: string
 };
 
-export function processFilterRulesWithPreload(
+export function createFilterProcessor(
   filterRulesUrl: string,
   fallbackUrls?: string[] | null,
   includeThirdParty = false
 ) {
-  const downloadPromise = fetchAssets(
-    filterRulesUrl, fallbackUrls,
-    true, false, true
-  );
-
   return (span: Span) => span.traceChildAsync<ProcessFilterRulesResult>(`process filter rules: ${filterRulesUrl}`, async (span) => {
-    const filterRules = await span.traceChildPromise('download', downloadPromise, SpanCategory.Network);
+    const filterRules = await span.traceChildAsync('download', () => fetchAssets(filterRulesUrl, fallbackUrls, true, false, ignoreAdGuardUnsupportedLine), SpanCategory.Network);
 
     const whiteDomains = new Set<string>();
     const whiteDomainSuffixes = new Set<string>();

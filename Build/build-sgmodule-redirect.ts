@@ -5,6 +5,7 @@ import { getHostname } from 'tldts-experimental';
 import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR } from './constants/dir';
 import { escapeRegexp } from 'fast-escape-regexp';
 import { fastStringArrayJoin } from 'foxts/fast-string-array-join';
+import { settleBuildWork } from './lib/build-output';
 
 const REDIRECT_MIRROR_HEADER: Array<[from: string, to: string, canUboUriTransform?: boolean]> = [
   // Gravatar
@@ -180,7 +181,7 @@ export const buildRedirectModule = task(require.main === module, __filename)(asy
     }
   }
 
-  await Promise.all([
+  await settleBuildWork([
     compareAndWriteFile(
       span,
       [

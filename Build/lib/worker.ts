@@ -5,6 +5,11 @@ import { Worker as JestWorker } from 'jest-worker';
 const sharedWorkerOptions = {
   enableWorkerThreads: true,
   forkOptions: {
+    // Mocha's runtime require hooks are not inherited by worker threads.
+    // The worker owns the TypeScript loader when the calling CLI did not preload it.
+    execArgv: process.execArgv.some(argument => argument.includes('@swc-node/register'))
+      ? undefined
+      : ['--require', require.resolve('@swc-node/register')],
     env: {
       ...process.env,
       NODE_OPTIONS: process.env.NODE_OPTIONS

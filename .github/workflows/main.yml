@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact candidate commit to validate
+        required: false
+        type: string
 
 concurrency:
   group: rulemesh-${{ github.event.pull_request.number || github.ref }}
@@ -23,6 +28,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Verify checkout identity
+        env:
+          EXPECTED_SHA: ${{ inputs.source_ref || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12.8.1
@@ -38,33 +48,16 @@ jobs:
           ref: main
           path: .cache/published-site
           persist-credentials: false
-      - name: Read Sukka output baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: SukkaLab/ruleset.skk.moe
-          ref: master
-          path: .cache/sukka-site
-          persist-credentials: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec tsc --noEmit
       - run: pnpm test
       - run: pnpm lint
       - run: pnpm run sync:verify
-      - name: Prepare output tree
-        run: |
-          mkdir -p public
-          if [ -f .cache/published-site/.RULEMESH_RULESET_SERVER ]; then
-            rsync -a --delete --exclude='.git/' .cache/published-site/ public/
-            echo 'Reusing the previous Sukka-based RuleMesh output'
-          else
-            rsync -a --delete --exclude='.git/' .cache/sukka-site/ public/
-            rm -f public/CNAME public/deploy-check.txt
-            echo 'Publishing a completely new Sukka-based RuleMesh tree'
-          fi
       - name: Build ruleset server
         env:
           PUBLIC_DIR: public
           RULEMESH_SKIP_PREVIOUS_DOWNLOAD: 1
+          RULEMESH_PREVIOUS_DIR: .cache/published-site
           RULEMESH_SITE_BASE: https://codingmesh.github.io/ruleset/
         run: pnpm build
       - name: Verify generated contract
@@ -92,30 +85,40 @@ jobs:
           echo 'cadbaded70a635d0c37bf52614d8e3116542243247211e0b441328595c62acb6  '"$tools/sing-box.tar.gz" | sha256sum --check
           tar -xzf "$tools/sing-box.tar.gz" -C "$tools"
           singbox="$tools/sing-box-1.14.3-linux-amd64-glibc/sing-box"
-          "$tools/mihomo" -t -f public/Config/mihomo/standard.yaml
-          "$tools/mihomo" -t -f public/Config/mihomo/advertising.yaml
+          mkdir -p "$tools/geodata"
+          curl --fail --location --retry 3 --max-time 60 --output "$tools/geodata/Country.mmdb" https://raw.githubusercontent.com/maxmind/MaxMind-DB/6a690a705bc6962c0025a32e94a8f0dc8f86418c/test-data/GeoIP2-Country-Test.mmdb
+          curl --fail --location --retry 3 --max-time 60 --output "$tools/geodata/ASN.mmdb" https://raw.githubusercontent.com/maxmind/MaxMind-DB/6a690a705bc6962c0025a32e94a8f0dc8f86418c/test-data/GeoLite2-ASN-Test.mmdb
+          echo 'b37601903448683d241af52893c8cbf0fed461e0cdebe0bfaca01891fdeb6db9  '"$tools/geodata/Country.mmdb" | sha256sum --check
+          echo '75901b98ed6e58d3bd41af9985044b747a7ec0be1369f930c24f5e044427181a  '"$tools/geodata/ASN.mmdb" | sha256sum --check
+          "$tools/mihomo" -d "$tools/geodata" -t -f public/Config/mihomo/standard.yaml
+          "$tools/mihomo" -d "$tools/geodata" -t -f public/Config/mihomo/advertising.yaml
           "$singbox" check -c public/Config/singbox/standard.json
           "$singbox" check -c public/Config/singbox/advertising.json
           for source in public/Clash/domainset/*.txt; do "$tools/mihomo" convert-ruleset domain text "$source" "$tools/mrs/domainset-$(basename "${source%.txt}").mrs"; done
           for source in public/sing-box/domainset/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/domainset-$(basename "${source%.json}").srs"; done
           for source in public/sing-box/non_ip/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/non_ip-$(basename "${source%.json}").srs"; done
           for source in public/sing-box/ip/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/ip-$(basename "${source%.json}").srs"; done
-          PUBLIC_DIR=public RULEMESH_MIHOMO="$tools/mihomo" RULEMESH_SING_BOX="$singbox" pnpm run native:routing
-      - name: Record deployment source
-        run: printf '%s\n' "$GITHUB_SHA" > public/deploy-check.txt
+          PUBLIC_DIR=public RULEMESH_MIHOMO_DATA="$tools/geodata" RULEMESH_MIHOMO="$tools/mihomo" RULEMESH_SING_BOX="$singbox" pnpm run native:routing
       - name: Replace generated repository tree
         run: rsync -a --delete --exclude='.git/' public/ .cache/published-site/
       - name: Review generated output
         run: |
           git -C .cache/published-site add --all
+          git -C .cache/published-site diff --cached --binary > "$RUNNER_TEMP/rulemesh-generated.patch"
           {
             echo '## Generated ruleset diff'
             echo '```text'
             git -C .cache/published-site diff --cached --stat
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save generated diff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: generated-diff-${{ inputs.source_ref || github.sha }}
+          path: ${{ runner.temp }}/rulemesh-generated.patch
+          retention-days: 7
       - name: Publish checked output
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (!inputs.source_ref || inputs.source_ref == github.sha)
         env:
           SITE_DEPLOY_KEY: ${{ secrets.RULEMESH_SITE_DEPLOY_KEY }}
         run: |
@@ -133,7 +136,7 @@ jobs:
             git -C .cache/published-site push origin HEAD:main
           fi
       - name: Wait for GitHub Pages
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (!inputs.source_ref || inputs.source_ref == github.sha)
         run: |
           for attempt in $(seq 1 30); do
             marker=$(curl --fail --silent --show-error --location --max-time 20 "https://codingmesh.github.io/ruleset/deploy-check.txt?attempt=${attempt}" || true)

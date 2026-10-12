@@ -1,7 +1,7 @@
 /* eslint-disable unused-imports/no-unused-vars -- some unused methods */
 import path from 'node:path';
-import { processFilterRulesWithPreload } from './lib/parse-filter/filters';
-import { processHosts } from './lib/parse-filter/hosts';
+import { createFilterProcessor } from './lib/parse-filter/filters';
+import { createHostsProcessor } from './lib/parse-filter/hosts';
 import { HostnameSmolTrie } from 'hntrie/smol';
 import { domainToASCII } from 'node:url';
 import { dummySpan } from './trace';
@@ -42,7 +42,7 @@ import runAgainstSourceFile from './lib/run-against-source-file';
 })();
 
 async function writeHostsToTrie(trie: HostnameSmolTrie, hostsUrl: string, includeAllSubDomain = false) {
-  const hosts = await processHosts(dummySpan, hostsUrl, [], includeAllSubDomain);
+  const hosts = await createHostsProcessor(hostsUrl, [], includeAllSubDomain)(dummySpan);
 
   for (let i = 0, len = hosts.length; i < len; i++) {
     trie.add(hosts[i]);
@@ -50,7 +50,7 @@ async function writeHostsToTrie(trie: HostnameSmolTrie, hostsUrl: string, includ
 }
 
 async function writeFiltersToTrie(trie: HostnameSmolTrie, filterUrl: string, includeThirdParty = false) {
-  const { whiteDomainSuffixes, whiteDomains, blackDomainSuffixes, blackDomains } = await processFilterRulesWithPreload(filterUrl, [], includeThirdParty)(dummySpan);
+  const { whiteDomainSuffixes, whiteDomains, blackDomainSuffixes, blackDomains } = await createFilterProcessor(filterUrl, [], includeThirdParty)(dummySpan);
   for (let i = 0, len = blackDomainSuffixes.length; i < len; i++) {
     trie.addSubdomain(blackDomainSuffixes[i]);
   }

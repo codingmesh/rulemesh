@@ -2,7 +2,6 @@ import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit, ResponseError } from './fetch-retry';
 import { waitWithAbort } from 'foxts/wait';
 import { nullthrow } from 'foxts/guard';
-import { ignoreAdGuardUnsupportedLine } from './parse-filter/filters';
 import { splitTextIntoLines } from './fetch-text-by-line';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
@@ -41,7 +40,7 @@ interface PrimaryDownloadProgress {
 
 export async function fetchAssets(
   url: string, fallbackUrls: null | undefined | string[] | readonly string[],
-  processLine = false, allowEmpty = false, filterAdGuardUnsupportedLines = false
+  processLine = false, allowEmpty = false, filter: ((line: string) => string | null) | null = null
 ) {
   const controller = new AbortController();
   const primaryProgress: PrimaryDownloadProgress = {
@@ -199,7 +198,7 @@ export async function fetchAssets(
         return splitTextIntoLines(
           textDecoder.decode(buf),
           processLine,
-          filterAdGuardUnsupportedLines ? ignoreAdGuardUnsupportedLine : null
+          filter
         );
       });
 
@@ -224,10 +223,12 @@ export async function fetchAssets(
   if (!fallbackUrls || fallbackUrls.length === 0) {
     return primaryPromise;
   }
-  return Promise.any(
-    appendArrayInPlace(
-      [primaryPromise],
-      fallbackUrls.map(createFetchFallbackPromise)
-    )
-  );
+  const attempts = appendArrayInPlace([primaryPromise], fallbackUrls.map(createFetchFallbackPromise));
+  try {
+    return await Promise.any(attempts);
+  } finally {
+    controller.abort();
+    // Losing requests and their queue callbacks also belong to this invocation.
+    await Promise.allSettled(attempts);
+  }
 }

@@ -36,33 +36,11 @@ function hostsLineCbIncludeAllSubdomain(line: string, set: string[], meta: strin
   set.push('.' + domain);
 }
 
-export function processHosts(
-  span: Span,
-  hostsUrl: string, mirrors: string[] | null, includeAllSubDomain = false
-) {
-  const cb = includeAllSubDomain ? hostsLineCbIncludeAllSubdomain : hostsLineCb;
-
-  return span.traceChildAsync(`process hosts: ${hostsUrl}`, async (span) => {
-    const filterRules = await span.traceChild('download', SpanCategory.Network).traceAsyncFn(() => fetchAssets(hostsUrl, mirrors, true));
-
-    const domainSets: string[] = [];
-
-    span.traceChild('parse hosts', SpanCategory.Compute).traceSyncFn(() => {
-      for (let i = 0, len = filterRules.length; i < len; i++) {
-        cb(filterRules[i], domainSets, hostsUrl);
-      }
-    });
-
-    return domainSets;
-  });
-}
-
-export function processHostsWithPreload(hostsUrl: string, mirrors: string[] | null, includeAllSubDomain = false, allowEmptyRemote = false) {
-  const downloadPromise = fetchAssets(hostsUrl, mirrors, true, allowEmptyRemote);
-  const cb = includeAllSubDomain ? hostsLineCbIncludeAllSubdomain : hostsLineCb;
+export function createHostsProcessor(hostsUrl: string, mirrors: string[] | null, includeAllSubdomain = false, allowEmptyRemote = false) {
+  const cb = includeAllSubdomain ? hostsLineCbIncludeAllSubdomain : hostsLineCb;
 
   return (span: Span) => span.traceChildAsync(`process hosts: ${hostsUrl}`, async (span) => {
-    const filterRules = await span.traceChild('download', SpanCategory.Network).tracePromise(downloadPromise);
+    const filterRules = await span.traceChildAsync('download', () => fetchAssets(hostsUrl, mirrors, true, allowEmptyRemote), SpanCategory.Network);
 
     const domainSets: string[] = [];
 

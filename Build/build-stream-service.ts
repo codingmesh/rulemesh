@@ -5,6 +5,7 @@ import { task } from './trace';
 import { ALL, NORTH_AMERICA, EU, HK, TW, JP, KR } from '../Source/stream';
 import { SHARED_DESCRIPTION } from './constants/description';
 import { RulesetOutput } from './lib/rules/ruleset';
+import { settleBuildWork } from './lib/build-output';
 
 function createRulesetForStreamService(
   span: Span,
@@ -32,7 +33,7 @@ function createRulesetForStreamService(
   ];
 }
 
-export const buildStreamService = task(require.main === module, __filename)(async (span) => Promise.all([
+export const buildStreamService = task(require.main === module, __filename)(async (span) => settleBuildWork([
   createRulesetForStreamService(span, 'stream', 'All', ALL),
   createRulesetForStreamService(span, 'stream_us', 'North America', NORTH_AMERICA),
   createRulesetForStreamService(span, 'stream_eu', 'Europe', EU),

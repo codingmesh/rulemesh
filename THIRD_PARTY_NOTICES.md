@@ -12,7 +12,7 @@ RuleMesh retains and modifies the upstream build implementation, source rules, m
 
 The additional service categories are synchronized from MetaCubeX/meta-rules-dat and pinned by `sources/registry.json`, which is the authoritative current revision. MetaCubeX declares GNU GPL version 3; the selected data also traces to v2fly/domain-list-community, which is MIT licensed. Reference license texts are preserved in `licenses/MetaCubeX-GPL-3.0.txt` and `licenses/v2fly-MIT.txt`.
 
-The imported categories were normalized into `Source/domainset`, `Source/non_ip`, and `Source/ip` and are processed by the inherited SukkaW/Surge pipeline. File headers link back to this notice.
+The imported categories were normalized into `Source/domainset`, `Source/non_ip`, and `Source/ip` and are processed by the inherited SukkaW/Surge pipeline. The manually pinned China IPv4/IPv6 snapshot from `geo/geoip/cn.list` is recorded separately in `sources/maintained.json` and normalized into resolve-allowed IP rules. File headers link back to the provenance and license records.
 
 ## Official network facts
 

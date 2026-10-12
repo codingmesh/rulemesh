@@ -10,20 +10,21 @@ import { loosTldOptWithPrivateDomains } from '../constants/loose-tldts-opt';
 import { BLACK_TLD, WHITELIST_MAIN_DOMAINS, leathalKeywords, lowKeywords, sensitiveKeywords } from '../constants/phishing-score-source';
 import { PHISHING_DOMAIN_LISTS_EXTRA, PHISHING_HOSTS_EXTRA } from '../constants/reject-data-source';
 
-import { processHostsWithPreload } from './parse-filter/hosts';
-import { processDomainListsWithPreload } from './parse-filter/domainlists';
+import { createHostsProcessor } from './parse-filter/hosts';
+import { createDomainListProcessor } from './parse-filter/domainlists';
 
 import process from 'node:process';
 import { Counter } from 'foxts/counter';
+import { settleBuildWork } from './build-output';
 
 export function getPhishingDomains(rawSpan?: RawSpan, isDebug = false): Promise<WorkerJobResult<string[]>> {
   return workerJob(rawSpan, async (childSpan) => {
     const downloads = [
-      ...PHISHING_DOMAIN_LISTS_EXTRA.map(entry => processDomainListsWithPreload(...entry)),
-      ...PHISHING_HOSTS_EXTRA.map(entry => processHostsWithPreload(...entry))
+      ...PHISHING_DOMAIN_LISTS_EXTRA.map(entry => createDomainListProcessor(...entry)),
+      ...PHISHING_HOSTS_EXTRA.map(entry => createHostsProcessor(...entry))
     ];
 
-    const domainGroups = await Promise.all(downloads.map(task => task(childSpan)));
+    const domainGroups = await settleBuildWork(downloads.map(task => task(childSpan)));
 
     return childSpan.traceChild('calculate and handling mass phishing domains', SpanCategory.Compute).traceSyncFn<string[]>(() => {
       const domainArr: string[] = [];
