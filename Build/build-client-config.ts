@@ -7,77 +7,19 @@ import { parse, stringify } from 'yaml';
 
 import { PUBLIC_DIR } from './constants/dir';
 import { compareAndWriteFile } from './lib/create-file';
+import { activePolicyGroups, groupChoices, orderedCategories, partitions, policyFor } from './lib/client-config/routing-profile';
+import type { ConfigTarget, Partition } from './lib/client-config/routing-profile';
 import { task } from './trace';
 
-export type ConfigTarget = 'shadowrocket' | 'surge' | 'mihomo' | 'singbox';
-type Partition = 'domainset' | 'non_ip' | 'ip';
-type DefaultPolicy = 'PROXY' | 'DIRECT' | 'REJECT';
-interface PolicyGroup { id: string, categories: string[], defaultPolicy: DefaultPolicy }
 interface RuleReference { id: string, partition: Partition, policy: string, path: string, tag: string }
 
 const SITE_BASE = process.env.RULEMESH_SITE_BASE ?? 'https://codingmesh.github.io/ruleset/';
-const partitions: Partition[] = ['domainset', 'non_ip', 'ip'];
-const serviceOrder = [
-  'anthropic', 'openai', 'gemini', 'copilot', 'xai', 'perplexity', 'apple-intelligence', 'ai-other',
-  'telegram', 'discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit', 'youtube', 'netflix',
-  'disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'bilibili', 'apple-cn',
-  'icloud', 'apple-music', 'apple-tv', 'google-fcm', 'onedrive', 'npm', 'python', 'docker', 'github',
-  'gitlab', 'jetbrains', 'developer', 'steam-cn', 'game-downloads', 'steam', 'epic-games', 'playstation',
-  'xbox', 'nintendo'
-];
-const platformOrder = ['downloads', 'apple', 'google', 'microsoft', 'aws', 'digitalocean', 'cloudflare', 'games'];
-const genericOrder = ['cdn-cn', 'cdn-global', 'china', 'global'];
-export const policyGroups: PolicyGroup[] = [
-  { id: 'anthropic', categories: ['anthropic'], defaultPolicy: 'PROXY' },
-  { id: 'openai', categories: ['openai'], defaultPolicy: 'PROXY' },
-  { id: 'gemini', categories: ['gemini'], defaultPolicy: 'PROXY' },
-  { id: 'ai-other', categories: ['xai', 'perplexity', 'apple-intelligence', 'ai-other', 'ai'], defaultPolicy: 'PROXY' },
-  { id: 'telegram', categories: ['telegram', 'telegram_asn', 'teleproto'], defaultPolicy: 'PROXY' },
-  { id: 'social', categories: ['discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit'], defaultPolicy: 'PROXY' },
-  { id: 'youtube', categories: ['youtube'], defaultPolicy: 'PROXY' },
-  { id: 'netflix', categories: ['netflix'], defaultPolicy: 'PROXY' },
-  { id: 'streaming', categories: ['disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'stream', 'stream_us', 'stream_eu', 'stream_hk', 'stream_tw', 'stream_jp', 'stream_kr'], defaultPolicy: 'PROXY' },
-  { id: 'developer', categories: ['copilot', 'npm', 'python', 'docker', 'github', 'gitlab', 'jetbrains', 'developer'], defaultPolicy: 'PROXY' },
-  { id: 'apple', categories: ['icloud', 'icloud_private_relay', 'apple-music', 'apple-tv', 'apple', 'apple_cdn', 'apple_services'], defaultPolicy: 'DIRECT' },
-  { id: 'google', categories: ['google-fcm', 'google'], defaultPolicy: 'PROXY' },
-  { id: 'microsoft', categories: ['onedrive', 'microsoft'], defaultPolicy: 'DIRECT' },
-  { id: 'games', categories: ['steam', 'epic-games', 'playstation', 'xbox', 'nintendo', 'games'], defaultPolicy: 'PROXY' },
-  { id: 'downloads', categories: ['game-download', 'game-downloads', 'downloads', 'download', 'cdn-global', 'cdn', 'aws', 'cloudflare', 'digitalocean', 'speedtest', 'cloudmounter'], defaultPolicy: 'PROXY' },
-  { id: 'china', categories: ['china', 'cdn-cn', 'apple-cn', 'apple_cn', 'steam-cn', 'bilibili', 'domestic', 'domestic_cdn', 'neteasemusic', 'sogouinput'], defaultPolicy: 'DIRECT' },
-  { id: 'private', categories: ['private', 'private.resolve', 'lan'], defaultPolicy: 'DIRECT' },
-  { id: 'advertising', categories: ['advertising', 'reject', 'reject_extra', 'reject_phishing', 'reject-drop', 'reject-no-drop', 'reject-url-regex', 'reject_sukka'], defaultPolicy: 'REJECT' },
-  { id: 'fallback', categories: ['global', 'global_plus'], defaultPolicy: 'PROXY' }
-];
-
-const categoryPolicy = new Map<string, string>();
-for (let groupIndex = 0, groupLength = policyGroups.length; groupIndex < groupLength; groupIndex++) {
-  const group = policyGroups[groupIndex];
-  for (let categoryIndex = 0, categoryLength = group.categories.length; categoryIndex < categoryLength; categoryIndex++) {
-    categoryPolicy.set(group.categories[categoryIndex], group.id);
-  }
-}
 
 function validateSiteBase(base: string) {
   const url = new URL(base);
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || !base.endsWith('/')) {
     throw new Error('RuleMesh site base must be a plain HTTPS directory URL ending in /');
   }
-}
-function policyFor(category: string) { return categoryPolicy.get(category) ?? 'node-selection'; }
-function orderedCategories(available: Set<string>, includeAdvertising: boolean) {
-  const preferred = ['lan', 'private', ...serviceOrder, ...platformOrder, ...genericOrder];
-  const selected: string[] = [];
-  const excluded = (id: string) => !categoryPolicy.has(id) || id === 'direct' || (!includeAdvertising && policyFor(id) === 'advertising');
-  for (let i = 0, len = preferred.length; i < len; i++) {
-    const id = preferred[i];
-    if (available.has(id) && !excluded(id)) selected.push(id);
-  }
-  const remaining = [...available].sort();
-  for (let i = 0, len = remaining.length; i < len; i++) {
-    const id = remaining[i];
-    if (!selected.includes(id) && !excluded(id)) selected.push(id);
-  }
-  return selected;
 }
 function targetSpec(target: ConfigTarget) {
   if (target === 'surge') return { directory: 'List', extension: 'conf' };
@@ -103,25 +45,29 @@ export async function clientReferences(target: ConfigTarget, includeAdvertising:
   for (let i = 0; i < ids.length; i++) for (const id of ids[i]) all.add(id);
   const ordered = orderedCategories(all, includeAdvertising);
   const references: RuleReference[] = [];
-  for (let partitionIndex = 0; partitionIndex < partitions.length; partitionIndex++) {
-    const partition = partitions[partitionIndex];
-    const spec = targetSpec(target);
-    for (let idIndex = 0; idIndex < ordered.length; idIndex++) {
-      const id = ordered[idIndex];
-      if (!ids[partitionIndex].has(id)) continue;
+  const spec = targetSpec(target);
+  // Preserve category precedence across domainset and classical non-IP files;
+  // then evaluate every IP set. This prevents a broad global domain rule from
+  // preceding a service-specific classical rule while retaining domain-before-IP.
+  for (let idIndex = 0; idIndex < ordered.length; idIndex++) {
+    const id = ordered[idIndex];
+    for (let partitionIndex = 0; partitionIndex < 2; partitionIndex++) {
+      const partition = partitions[partitionIndex];
+      if (ids[partitionIndex].has(id)) {
+        const relative = `${spec.directory}/${partition}/${id}.${spec.extension}`;
+        references.push({ id, partition, policy: policyFor(id)!, path: relative, tag: `rulemesh-${partition}-${id}`.replaceAll('.', '-') });
+      }
+    }
+  }
+  for (let idIndex = 0; idIndex < ordered.length; idIndex++) {
+    const id = ordered[idIndex];
+    if (ids[2].has(id)) {
+      const partition = partitions[2];
       const relative = `${spec.directory}/${partition}/${id}.${spec.extension}`;
-      references.push({ id, partition, policy: policyFor(id), path: relative, tag: `rulemesh-${partition}-${id}`.replaceAll('.', '-') });
+      references.push({ id, partition, policy: policyFor(id)!, path: relative, tag: `rulemesh-${partition}-${id}`.replaceAll('.', '-') });
     }
   }
   return references;
-}
-function activeGroups(includeAdvertising: boolean) {
-  return policyGroups.filter(group => includeAdvertising || group.id !== 'advertising');
-}
-function groupChoices(group: PolicyGroup, nodePolicy: string, directPolicy: string, rejectPolicy: string) {
-  if (group.defaultPolicy === 'DIRECT') return [directPolicy, nodePolicy];
-  if (group.defaultPolicy === 'REJECT') return [rejectPolicy, nodePolicy, directPolicy];
-  return [nodePolicy, directPolicy];
 }
 function parseIni(text: string) {
   const result = new Map<string, string[]>(); let current = '';
@@ -151,7 +97,7 @@ function stringName(value: unknown, label: string) { if (typeof value !== 'strin
 
 async function shadowrocketConfiguration(includeAdvertising: boolean, base = SITE_BASE) {
   const references = await clientReferences('shadowrocket', includeAdvertising, base);
-  const groups = activeGroups(includeAdvertising);
+  const groups = activePolicyGroups(includeAdvertising);
   const name = includeAdvertising ? 'advertising' : 'standard';
   const lines = [
     '# RuleMesh complete Shadowrocket configuration',
@@ -173,7 +119,7 @@ async function surgeConfiguration(nodeBase: string, includeAdvertising: boolean,
   const parts = parseIni(nodeBase); const proxies = parts.get('Proxy') ?? []; const groups = parts.get('Proxy Group') ?? [];
   if (!proxies.some(line => line.includes('=')) && !groups.some(line => /policy-path\s*=/.test(line))) throw new Error('Surge node base needs Proxy entries or policy-path');
   groups.push('RuleMesh-Nodes = select,include-all-proxies=true');
-  for (const group of activeGroups(includeAdvertising)) groups.push(`RuleMesh-${group.id} = select,${groupChoices(group, 'RuleMesh-Nodes', 'DIRECT', 'REJECT').join(',')}`);
+  for (const group of activePolicyGroups(includeAdvertising)) groups.push(`RuleMesh-${group.id} = select,${groupChoices(group, 'RuleMesh-Nodes', 'DIRECT', 'REJECT', 'RuleMesh-').join(',')}`);
   parts.set('Proxy Group', groups);
   const rules: string[] = [];
   for (const reference of references) rules.push(`${reference.partition === 'domainset' ? 'DOMAIN-SET' : 'RULE-SET'},${base}${reference.path},RuleMesh-${reference.policy}`);
@@ -189,7 +135,7 @@ async function mihomoConfiguration(nodeBase: string, includeAdvertising: boolean
   if (!proxyNames.length && !Object.keys(providers).length) throw new Error('Mihomo node base needs proxies or proxy-providers');
   const groups = objectArray(document['proxy-groups'], 'proxy groups');
   groups.push({ name: 'RuleMesh-Nodes', type: 'select', ...(proxyNames.length ? { proxies: proxyNames } : {}), ...(Object.keys(providers).length ? { use: Object.keys(providers) } : {}) });
-  for (const group of activeGroups(includeAdvertising)) groups.push({ name: `RuleMesh-${group.id}`, type: 'select', proxies: groupChoices(group, 'RuleMesh-Nodes', 'DIRECT', 'REJECT') });
+  for (const group of activePolicyGroups(includeAdvertising)) groups.push({ name: `RuleMesh-${group.id}`, type: 'select', proxies: groupChoices(group, 'RuleMesh-Nodes', 'DIRECT', 'REJECT', 'RuleMesh-') });
   const ruleProviders = plainObject(document['rule-providers'] ?? {}, 'rule providers'); const rules: string[] = [];
   for (const reference of references) {
     ruleProviders[reference.tag] = { type: 'http', behavior: reference.partition === 'domainset' ? 'domain' : 'classical', format: 'text', url: base + reference.path, path: `./rulemesh/${reference.tag}.txt`, interval: 86400 };
@@ -205,13 +151,13 @@ async function singboxConfiguration(nodeBase: string, includeAdvertising: boolea
   if (!nodeTags.length) throw new Error('sing-box node base needs at least one real outbound');
   if (!outbounds.some(outbound => outbound.tag === 'RuleMesh-Direct')) outbounds.push({ type: 'direct', tag: 'RuleMesh-Direct' });
   outbounds.push({ type: 'selector', tag: 'RuleMesh-Nodes', outbounds: nodeTags });
-  for (const group of activeGroups(includeAdvertising)) if (group.defaultPolicy !== 'REJECT') outbounds.push({ type: 'selector', tag: `RuleMesh-${group.id}`, outbounds: groupChoices(group, 'RuleMesh-Nodes', 'RuleMesh-Direct', 'RuleMesh-Direct') });
+  for (const group of activePolicyGroups(includeAdvertising)) if (group.defaultPolicy !== 'REJECT') outbounds.push({ type: 'selector', tag: `RuleMesh-${group.id}`, outbounds: groupChoices(group, 'RuleMesh-Nodes', 'RuleMesh-Direct', 'RuleMesh-Direct', 'RuleMesh-') });
   const route = plainObject(document.route ?? {}, 'route'); const existingSets = objectArray(route.rule_set, 'rule sets'); const existingRules = objectArray(route.rules, 'route rules');
   const remoteSets = references.map(reference => ({ type: 'remote', tag: reference.tag, format: 'source', url: base + reference.path, update_interval: '1d', download_detour: 'RuleMesh-Nodes' }));
   const rules: Record<string, unknown>[] = [...existingRules]; let resolved = false;
   for (const reference of references) {
     if (!resolved && reference.partition === 'ip') { rules.push({ action: 'resolve' }); resolved = true; }
-    rules.push(categoryPolicy.get(reference.id) === 'advertising' ? { rule_set: [reference.tag], action: 'reject' } : { rule_set: [reference.tag], action: 'route', outbound: `RuleMesh-${reference.policy}` });
+    rules.push(policyFor(reference.id) === 'advertising' ? { rule_set: [reference.tag], action: 'reject' } : { rule_set: [reference.tag], action: 'route', outbound: `RuleMesh-${reference.policy}` });
   }
   return JSON.stringify({ ...document, outbounds, route: { ...route, rule_set: [...existingSets, ...remoteSets], rules, final: 'RuleMesh-fallback' }, experimental: { ...plainObject(document.experimental ?? {}, 'experimental'), cache_file: { enabled: true } } }, null, 2) + '\n';
 }
@@ -241,6 +187,15 @@ export const buildClientConfig = task(require.main === module, __filename)(async
       writes.push(compareAndWriteFile(span, content.trimEnd().split('\n'), path.join(PUBLIC_DIR, 'Config', target, `${variant}.${extension}.template`)));
     }
   }
-  writes.push(compareAndWriteFile(span, ['# RuleMesh client configurations', '', 'Shadowrocket configs are directly importable. Surge, Mihomo and sing-box files are complete structural templates; compose them with a private node base using the source repository CLI.'], path.join(PUBLIC_DIR, 'Config', 'README.md')));
+  writes.push(compareAndWriteFile(span, [
+    '# RuleMesh client configurations', '',
+    'Shadowrocket configs are directly importable. Surge, Mihomo and sing-box files are complete structural templates; compose them with a private node base using the source repository CLI.', '',
+    'Policy hierarchy:', '',
+    '1. Choose the default node in the root node selector.',
+    '2. AI, social and streaming family selectors inherit that choice.',
+    '3. Anthropic, OpenAI, Gemini, Telegram, YouTube and Netflix inherit their family and may be overridden independently.',
+    '4. Private and mainland China traffic default to direct. Global fallback defaults to the root node selector.',
+    '5. The advertising profile evaluates reject rules before private, service, domestic and global rules; the standard profile contains no advertising rules.'
+  ], path.join(PUBLIC_DIR, 'Config', 'README.md')));
   await Promise.all(writes);
 });

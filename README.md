@@ -81,7 +81,7 @@ pnpm run sync:verify      # 验证当前固定输入可重现
 
 ## 研究与设计依据
 
-项目保留此前对 SukkaW/Surge、MetaCubeX、blackmatrix7、Loyalsoldier、SagerNet、LOWERTOP、LingJingMaster、Johnshall 和 ACL4SSR 等项目的研究、来源审计与采用记录。研究资料及状态说明见 [docs/README.md](docs/README.md)。研究结论不自动等于已经实现，后续验收必须逐项核对源码和产物。
+项目保留此前对 SukkaW/Surge、MetaCubeX、blackmatrix7、Loyalsoldier、SagerNet、LOWERTOP、LingJingMaster、Johnshall 和 ACL4SSR 等项目的研究、来源审计与采用记录。研究资料及状态说明见 [docs/README.md](docs/README.md)，研究设计与当前实现的逐项映射见 [参考实现采用清单](docs/reference-adoption.md)。参考仓库不会因此成为 Git upstream 或自动同步来源。
 
 ## 构建与验收
 

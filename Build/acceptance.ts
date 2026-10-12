@@ -43,10 +43,20 @@ async function main() {
   const shadowStandard = await fsp.readFile(path.join(PUBLIC_DIR, 'Config/Shadowrocket/standard.conf'), 'utf8');
   const shadowAdvertising = await fsp.readFile(path.join(PUBLIC_DIR, 'Config/Shadowrocket/advertising.conf'), 'utf8');
   const anthropicPosition = shadowStandard.indexOf('/anthropic.conf');
+  const aiClassicalPosition = shadowStandard.indexOf('/non_ip/ai.conf');
   const globalPosition = shadowStandard.indexOf('/global.conf');
   const firstIpPosition = shadowStandard.indexOf('/ip/');
-  if (anthropicPosition < 0 || globalPosition < 0 || firstIpPosition < 0 || anthropicPosition > globalPosition || globalPosition > firstIpPosition) throw new Error('Routing order is not service -> generic -> IP');
-  if (!/\/(?:advertising|reject|reject_extra|reject_phishing)\./.test(shadowAdvertising)) throw new Error('Advertising variant has no rejection resources');
+  if (anthropicPosition < 0 || aiClassicalPosition < 0 || globalPosition < 0 || firstIpPosition < 0 || anthropicPosition > globalPosition || aiClassicalPosition > globalPosition || globalPosition > firstIpPosition) throw new Error('Routing order is not service -> generic -> IP');
+  const advertisingPosition = shadowAdvertising.search(/\/(?:advertising|reject|reject_extra|reject_phishing)\./);
+  if (advertisingPosition < 0) throw new Error('Advertising variant has no rejection resources');
+  if (advertisingPosition > shadowAdvertising.indexOf('/global.conf')) throw new Error('Advertising rules must precede the global catch-all');
+  if (!shadowStandard.includes('anthropic = select,ai,node-selection,DIRECT')) throw new Error('Shadowrocket service selector does not inherit the AI family');
+  const surgeStandard = await fsp.readFile(path.join(PUBLIC_DIR, 'Config/surge/standard.conf.template'), 'utf8');
+  if (!surgeStandard.includes('RuleMesh-anthropic = select,RuleMesh-ai,RuleMesh-Nodes,DIRECT')) throw new Error('Surge service selector does not inherit the AI family');
+  const mihomoStandard = parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/mihomo/standard.yaml.template'), 'utf8')) as { 'proxy-groups': Array<{ name: string, proxies: string[] }> };
+  if (!mihomoStandard['proxy-groups'].some(group => group.name === 'RuleMesh-anthropic' && group.proxies[0] === 'RuleMesh-ai')) throw new Error('Mihomo service selector does not inherit the AI family');
+  const singboxStandard = JSON.parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/singbox/standard.json.template'), 'utf8')) as { outbounds: Array<{ tag?: string, outbounds?: string[] }> };
+  if (!singboxStandard.outbounds.some(outbound => outbound.tag === 'RuleMesh-anthropic' && outbound.outbounds?.[0] === 'RuleMesh-ai')) throw new Error('sing-box service selector does not inherit the AI family');
   const sources = JSON.parse(await fsp.readFile(path.join(ROOT_DIR, 'sources/registry.json'), 'utf8')) as { upstream: { revision: string }, files: Array<{ category: string }> };
   if (!/^[a-f0-9]{40}$/.test(sources.upstream.revision)) throw new Error('Source revision is not immutable');
   for (let i = 0, len = sources.files.length; i < len; i++) {

@@ -9,6 +9,6 @@
 | [stage-a-source-audit.md](stage-a-source-audit.md) | 首批分类、固定来源和规则能力审计 | 研究快照 |
 | [sukka-full-audit.md](sukka-full-audit.md) | SukkaW/Surge 源码、构建、发布和维护体系完整核查 | 研究快照 |
 | [sukka-reference.md](sukka-reference.md) | Sukka 架构事实与 RuleMesh 历史取舍 | 参考记录 |
-| [upstream-adoption.md](upstream-adoption.md) | 数据复用、结构借鉴、行为参考和扩展边界 | 历史采用记录，待按当前实现复核 |
+| [reference-adoption.md](reference-adoption.md) | 研究结论到当前代码、产物和验收的采用映射 | 当前采用记录 |
 
 后续研究应更新或新增有日期的文档，并在本索引中说明替代关系。即使实现方向改变，也保留旧研究及其固定提交、证据链接和当时的限制，避免重复调研或丢失决策依据。
