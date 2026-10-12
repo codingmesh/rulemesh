@@ -88,7 +88,6 @@ jobs:
             git -C .cache/published-site diff --cached --stat
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          git -C .cache/published-site diff --cached --check
       - name: Publish checked output
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
