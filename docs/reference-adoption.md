@@ -39,6 +39,8 @@
 
 当前产物每份采用一个主要上游许可加本项目补充；Sukka/Meta 分开组织，blackmatrix7 仅对照。未声明许可的模板仅参考行为。条目来源和数据传递关系记录到实际输入，不用仓库根许可证替代文件范围核查。
 
+实际消费的数据分成三类：`sources/registry.json` 固定并同步 MetaCubeX 分类，`sources/maintained.json` 记录不自动同步的 Sukka 固定快照和官方网络事实，`sources/overrides.json` 保存带理由、证据和核查日期的 add/remove 修正。参考设计的仓库不进入这三份数据清单。
+
 ## 4. 参考项目的设计采用
 
 | 参考项目 | 采用的设计 | 当前实现证据 |

@@ -64,14 +64,15 @@ pnpm run config -- compose singbox --nodes /absolute/path/base.json
 ```text
 Source/                 人工维护和继承的规则源
 sources/registry.json   自动同步的上游文件与固定 revision
-sources/overrides.json  RuleMesh 自有补充
+sources/maintained.json 固定快照、转换方式和许可来源
+sources/overrides.json  对同步分类执行有证据的 add/remove 修正
 Build/                  构建、writer、配置组合和验收程序
 Modules/                Surge 模块
 Mock/                   拦截响应资源
 public/                 本地生成目录，不提交源码仓库
 ```
 
-MetaCubeX 细分类固定到 `sources/registry.json` 中的提交。每日同步任务发现新提交后生成候选 PR；构建只使用已审阅并提交的 revision。`sources/overrides.json` 会在每次同步后重新应用，因此自有补充不会被上游更新覆盖。
+MetaCubeX 细分类固定到 `sources/registry.json` 中的提交。每日同步任务发现新提交后生成候选 PR；构建只使用已审阅并提交的 revision。Sukka 固定产物和官方网络事实记录在 `sources/maintained.json`，不会自动同步。`sources/overrides.json` 会在每次同步后重新应用有证据的 `add` 和 `remove`，因此自有修正不会被候选更新覆盖。
 
 ```sh
 pnpm run sync             # 检查是否存在新的候选输入

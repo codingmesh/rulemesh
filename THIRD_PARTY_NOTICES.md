@@ -18,6 +18,8 @@ The imported categories were normalized into `Source/domainset`, `Source/non_ip`
 
 Selected Telegram and OpenAI destination addresses originate from their official published network documentation. RuleMesh records them as routing facts and does not claim ownership of the providers' documentation or replace their terms.
 
+The exact fetched snapshot hashes, source URLs, generated files and intentional transformations are recorded in `sources/maintained.json`. These facts are kept separate from repositories used only as design references.
+
 ## Dependencies
 
 The inherited build uses `hntrie`, `fast-cidr-tools`, and the other packages pinned by `pnpm-lock.yaml`. Their package metadata and license files remain authoritative. Reference MIT texts for `hntrie` and `fast-cidr-tools` are preserved in `licenses/`.

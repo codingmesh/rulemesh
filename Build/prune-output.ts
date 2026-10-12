@@ -22,7 +22,9 @@ export const pruneOutput = task(require.main === module, __filename)(async () =>
   const deprecated = [
     ['domainset', 'reject_sukka'],
     ['non_ip', 'global_plus'],
-    ['non_ip', 'apple_cdn']
+    ['non_ip', 'apple_cdn'],
+    ['non_ip', 'china.extra'],
+    ['non_ip', 'global.extra']
   ];
   for (let outputIndex = 0, outputLength = outputs.length; outputIndex < outputLength; outputIndex++) {
     const [directory, extension] = outputs[outputIndex];

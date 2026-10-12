@@ -29,6 +29,7 @@ async function main() {
   await walk(PUBLIC_DIR);
   if (allPaths.some(file => file.startsWith('rules/') || file.startsWith('configs/'))) throw new Error('Obsolete multi-page entry points remain published');
   if (allPaths.some(file => /\bmy_(?:direct|git|plus|proxy|reject|tw|us)\b/.test(file))) throw new Error('Personal upstream outputs remain published');
+  if (allPaths.some(file => /\/(?:china|global)\.extra\./.test(file))) throw new Error('Redundant split source outputs remain published');
   const configFiles = allPaths.filter(file => file.startsWith('Config/') && /\.(?:conf|yaml|json)(?:\.template)?$/.test(file));
   const siteBase = 'https://codingmesh.github.io/ruleset/';
   for (let i = 0, len = configFiles.length; i < len; i++) {
@@ -67,6 +68,23 @@ async function main() {
   }
   const anthropicSource = await fsp.readFile(path.join(ROOT_DIR, 'Source/domainset/anthropic.conf'), 'utf8');
   if (!anthropicSource.includes('.claude.app')) throw new Error('Owned Anthropic override was not reapplied');
+  const maintained = JSON.parse(await fsp.readFile(path.join(ROOT_DIR, 'sources/maintained.json'), 'utf8')) as { schemaVersion: number, files: Array<{ path: string, revision: string, sourcePath: string, license: string, transformation: string }> };
+  if (maintained.schemaVersion !== 1 || !maintained.files.length) throw new Error('Maintained source provenance is missing');
+  const maintainedPaths = new Set<string>();
+  for (let i = 0, len = maintained.files.length; i < len; i++) {
+    const source = maintained.files[i];
+    if (maintainedPaths.has(source.path)) throw new Error(`Duplicate maintained source provenance: ${source.path}`);
+    maintainedPaths.add(source.path);
+    if (!/^(?:[a-f0-9]{40}|sha256:[a-f0-9]{64})$/.test(source.revision) || !source.sourcePath || !source.license || !source.transformation) throw new Error(`Incomplete maintained source provenance: ${source.path}`);
+    const content = await fsp.readFile(path.join(ROOT_DIR, source.path), 'utf8');
+    if (!content.includes(source.revision)) throw new Error(`Maintained source header is not pinned: ${source.path}`);
+  }
+  const manuallyMaintained = (await Promise.all([
+    fsp.readdir(path.join(ROOT_DIR, 'Source/domainset')), fsp.readdir(path.join(ROOT_DIR, 'Source/non_ip')), fsp.readdir(path.join(ROOT_DIR, 'Source/ip'))
+  ])).flat();
+  if (manuallyMaintained.some(file => file.endsWith('.extra.conf'))) throw new Error('Redundant extra source files remain');
+  const globalClassical = await fsp.readFile(path.join(ROOT_DIR, 'Source/non_ip/global.conf'), 'utf8');
+  if (/^DOMAIN(?:-SUFFIX)?,/m.test(globalClassical)) throw new Error('Global domain rules are duplicated between domainset and non_ip');
   console.log(JSON.stringify({ status: 'pass', files: allPaths.length, configs: configFiles.length, pinnedSources: sources.files.length, revision: sources.upstream.revision }, null, 2));
 }
 void main();

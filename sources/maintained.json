@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "Source/domainset/private.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/lan.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domain view; the upstream author marker is omitted."
+    },
+    {
+      "path": "Source/ip/private.resolve.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/ip/lan.conf",
+      "license": "AGPL-3.0",
+      "transformation": "IP view with the upstream resolve-allowed intent preserved."
+    },
+    {
+      "path": "Source/domainset/china.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/domestic.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domain view; non-domain rules are kept in Source/non_ip/china.conf."
+    },
+    {
+      "path": "Source/non_ip/china.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/domestic.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Only wildcard and user-agent rules that cannot be represented by domainset."
+    },
+    {
+      "path": "Source/domainset/global.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/global.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domain view; non-domain rules are kept in Source/non_ip/global.conf."
+    },
+    {
+      "path": "Source/non_ip/global.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/global.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Only keyword and user-agent rules that cannot be represented by domainset."
+    },
+    {
+      "path": "Source/domainset/apple-cn.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/non_ip/apple_cn.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domain view; the upstream author marker is omitted."
+    },
+    {
+      "path": "Source/domainset/downloads.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/domainset/download.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domainset snapshot; the upstream author marker is omitted."
+    },
+    {
+      "path": "Source/domainset/game-downloads.conf",
+      "source": "SukkaLab/ruleset.skk.moe",
+      "revision": "fb2480119a3dd21e5f95f7eabf1ff98988e32289",
+      "sourcePath": "List/domainset/game-download.conf",
+      "license": "AGPL-3.0",
+      "transformation": "Domainset snapshot; the upstream author marker is omitted."
+    },
+    {
+      "path": "Source/ip/telegram.no-resolve.conf",
+      "source": "Telegram official network documentation",
+      "revision": "sha256:3ecd072cedf72eceee6961b18a51e37f905d5ce4a656a5d24cf5fea63e6ec651",
+      "sourcePath": "https://core.telegram.org/resources/cidr.txt",
+      "license": "network-facts",
+      "transformation": "Destination CIDRs rendered as no-resolve rules."
+    },
+    {
+      "path": "Source/ip/openai.no-resolve.conf",
+      "source": "OpenAI official network documentation",
+      "revision": "sha256:8f03f3c594165eeff009915c7e2beb4bdfb9d429fb1955c205e3b33ec781899a",
+      "sourcePath": "https://openai.com/chatgpt-voice.json",
+      "license": "network-facts",
+      "transformation": "Voice destination IPv4 prefixes rendered as no-resolve rules; port conditions are not represented."
+    }
+  ]
+}

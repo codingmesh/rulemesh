@@ -4,7 +4,28 @@ import fsp from 'node:fs/promises';
 
 interface SourceFile { category: string, path: string, license: string }
 interface SourcesDocument { schemaVersion: number, upstream: { repository: string, branch: string, revision: string }, files: SourceFile[] }
-interface OverridesDocument { schemaVersion: number, add: Array<{ category: string, value: string }> }
+interface SourceOverride { category: string, value: string, reason: string, evidence: string, checkedAt: string }
+interface OverridesDocument { schemaVersion: number, add: SourceOverride[], remove: SourceOverride[] }
+
+function validateOverride(override: SourceOverride) {
+  if (!override.category || !/^\.?[a-z0-9_*-]+(?:\.[a-z0-9_*-]+)*$/i.test(override.value)) throw new Error(`Invalid source override: ${JSON.stringify(override)}`);
+  if (!override.reason || !override.evidence.startsWith('https://') || !/^\d{4}-\d{2}-\d{2}$/.test(override.checkedAt)) throw new Error(`Incomplete source override evidence: ${override.category}:${override.value}`);
+}
+
+export function applyOverrides(category: string, entries: Set<string>, overrides: OverridesDocument) {
+  const additions = new Set<string>();
+  for (let i = 0, len = overrides.add.length; i < len; i++) {
+    const override = overrides.add[i]; validateOverride(override);
+    if (override.category === category) { entries.add(override.value); additions.add(override.value); }
+  }
+  for (let i = 0, len = overrides.remove.length; i < len; i++) {
+    const override = overrides.remove[i]; validateOverride(override);
+    if (override.category === category) {
+      if (additions.has(override.value)) throw new Error(`Source override both adds and removes ${category}:${override.value}`);
+      entries.delete(override.value);
+    }
+  }
+}
 
 async function main() {
   const root = path.resolve(__dirname, '..');
@@ -13,6 +34,7 @@ async function main() {
   const sourcesPath = path.join(root, 'sources/registry.json');
   const sources = JSON.parse(await fsp.readFile(sourcesPath, 'utf8')) as SourcesDocument;
   const overrides = JSON.parse(await fsp.readFile(path.join(root, 'sources/overrides.json'), 'utf8')) as OverridesDocument;
+  if (overrides.schemaVersion !== 2 || !Array.isArray(overrides.add) || !Array.isArray(overrides.remove)) throw new Error('Unsupported sources/overrides.json schema');
   const headers = { 'User-Agent': 'RuleMesh source sync', Accept: 'application/vnd.github+json' };
   let revision = sources.upstream.revision;
   if (!verifyPinned) {
@@ -34,9 +56,7 @@ async function main() {
       else if (/^[a-z0-9_.-]+$/i.test(line)) entries.add(line);
       else throw new Error(`Unsupported ${source.category} entry: ${line}`);
     }
-    for (let overrideIndex = 0, overrideLength = overrides.add.length; overrideIndex < overrideLength; overrideIndex++) {
-      const override = overrides.add[overrideIndex]; if (override.category === source.category) entries.add(override.value);
-    }
+    applyOverrides(source.category, entries, overrides);
     const content = [
       `# $ meta_title RuleMesh Ruleset - ${source.category}`,
       `# $ meta_description Synced from ${sources.upstream.repository}@${revision}.`,
@@ -51,4 +71,4 @@ async function main() {
   console.log(JSON.stringify({ previousRevision: sources.upstream.revision, upstreamRevision: revision, changed, written: write && changed }, null, 2));
   if (!write && changed) process.exitCode = 2;
 }
-void main();
+if (require.main === module) void main();

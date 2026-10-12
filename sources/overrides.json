@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "add": [
     {
       "category": "anthropic",
@@ -8,5 +8,6 @@
       "evidence": "https://code.claude.com/docs/en/desktop#network-access-requirements",
       "checkedAt": "2026-10-11"
     }
-  ]
+  ],
+  "remove": []
 }
