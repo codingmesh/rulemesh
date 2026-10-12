@@ -280,12 +280,4 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     rejectIPOutput.write(),
     rejectNonIpRulesetOutput.write()
   ]);
-
-  const myRejectOutputAdGuardHome = new AdGuardHomeOutput(span, 'my-reject-adguardhome', OUTPUT_INTERNAL_DIR)
-    .withTitle('Sukka\'s Ruleset - AdGuardHome Blocklist for Myself (Sukka)')
-    .withDescription([]);
-
-  await myRejectOutputAdGuardHome
-    .addFromRuleset(readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/my_reject.conf')))
-    .write();
 });

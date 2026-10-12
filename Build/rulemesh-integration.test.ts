@@ -4,6 +4,8 @@ import { expect } from 'earl';
 import { treeHtml } from './build-public';
 import { TreeFileType } from './lib/tree-dir';
 import { ShadowrocketRuleSet } from './lib/writing-strategy/shadowrocket';
+import { domainWildcardToRegex, SingboxSource } from './lib/writing-strategy/singbox';
+import { assertNodeOnlySingboxRoute } from './build-client-config';
 
 describe('RuleMesh integration with the inherited build', () => {
   it('keeps configuration output out of the root rules directory', () => {
@@ -33,5 +35,19 @@ describe('RuleMesh integration with the inherited build', () => {
     const content = writer.content ?? [];
     expect(content).toInclude('DOMAIN,api.example.com');
     expect(content).toInclude('DOMAIN-SUFFIX,example.net');
+  });
+
+  it('preserves domain wildcard semantics in sing-box regex rules', () => {
+    expect(domainWildcardToRegex('qhimgs?.example.*')).toEqual(String.raw`^qhimgs.\.example\..*$`);
+  });
+
+  it('rejects sing-box node bases that can shadow RuleMesh routing', () => {
+    expect(() => assertNodeOnlySingboxRoute({ rules: [{ action: 'route', outbound: 'other' }] })).toThrow(Error, 'sing-box node base must not contain route.rules; RuleMesh owns complete routing order');
+  });
+
+  it('does not turn process-name globs into ineffective exact sing-box names', () => {
+    const writer = new SingboxSource('non_ip'); writer.writeProcessNames(new Set(['curl', 'qbittorrent*']));
+    const document = JSON.parse((writer.content ?? []).join('\n')) as { rules: Array<{ process_name?: string[] }> };
+    expect(document.rules[0].process_name).toEqual(['curl']);
   });
 });

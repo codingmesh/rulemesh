@@ -12,7 +12,8 @@ vendor copy, or extension-layer directory.
 - Generate complete client configurations separately from the rules index;
   configuration files must not appear in the root rules tree.
 - Preserve the AGPL-3.0 license, `NOTICE`, and SukkaW/Surge attribution.
-- Keep `upstream` pointed at SukkaW/Surge and make downstream changes easy to
-  distinguish from upstream changes.
+- Keep the adopted Sukka commit and downstream modifications explicit in
+  `NOTICE` and the research records. The repository does not require a Git
+  `upstream` remote or automatic upstream merges.
 - Tests should protect important behavior and real regressions. Do not add
   redundant tests or tests for copy/style-only changes.

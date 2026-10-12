@@ -8,7 +8,6 @@ import { buildRejectIPList } from './build-reject-ip-list';
 import { buildAppleCdn } from './build-apple-cdn';
 import { buildAICIDR } from './build-ai-cidr';
 import { buildRejectDomainSet } from './build-reject-domainset';
-import { buildChnCidr } from './build-chn-cidr';
 import { buildSpeedtestDomainSet } from './build-speedtest-domainset';
 import { buildDomesticRuleset } from './build-domestic-direct-lan-ruleset-dns-mapping-module';
 import { buildGlobalRuleset } from './build-global-server-dns-mapping';
@@ -106,7 +105,6 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
         downloadPreviousBuildPromise.then(() => buildAICIDR()),
         downloadPreviousBuildPromise.then(() => farm.buildCdnDownloadConf()),
         downloadPreviousBuildPromise.then(() => buildRejectDomainSet()),
-        downloadPreviousBuildPromise.then(() => buildChnCidr()),
         downloadPreviousBuildPromise.then(() => buildSpeedtestDomainSet()),
         downloadPreviousBuildPromise.then(() => buildDomesticRuleset()),
         downloadPreviousBuildPromise.then(() => buildGlobalRuleset()),

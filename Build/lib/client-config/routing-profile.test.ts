@@ -1,7 +1,7 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
-import { groupChoices, orderedCategories, policyFor, policyGroups } from './routing-profile';
+import { groupChoices, orderedCategories, policyFor, policyGroups, unmappedCategories } from './routing-profile';
 
 describe('client routing profile', () => {
   it('keeps blocking and specific services ahead of broad catch-all rules', () => {
@@ -18,5 +18,9 @@ describe('client routing profile', () => {
     expect(groupChoices(anthropic, 'RuleMesh-Nodes', 'DIRECT', 'REJECT', 'RuleMesh-')).toEqual([
       'RuleMesh-ai', 'RuleMesh-Nodes', 'DIRECT'
     ]);
+  });
+
+  it('requires every published category to have an explicit policy or standalone role', () => {
+    expect(unmappedCategories(new Set(['anthropic', 'clash_fake_ip_filter', 'forgotten']))).toEqual(['forgotten']);
   });
 });

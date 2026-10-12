@@ -24,6 +24,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run sync -- --write
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - id: changes
         run: |
           if git diff --quiet -- Source sources; then echo 'changed=false' >> "$GITHUB_OUTPUT"; else echo 'changed=true' >> "$GITHUB_OUTPUT"; fi

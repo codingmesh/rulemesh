@@ -12,12 +12,12 @@ RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护�
 
 ## 客户端交付
 
-| 客户端 | 规则目录 | 完整配置交付 |
+| 客户端 | 规则目录 | 配置交付 |
 | --- | --- | --- |
 | Shadowrocket | `Shadowrocket/` | 标准/广告完整配置 URL 与二维码，可直接导入 |
-| Surge | `List/` | 标准/广告完整结构模板；使用本地节点底稿组合 |
-| Mihomo / Clash | `Clash/` | 标准/广告完整 YAML 模板；使用本地节点底稿组合 |
-| sing-box | `sing-box/` | 标准/广告完整 JSON 模板；使用本地节点底稿组合 |
+| Surge | `List/` | 标准/广告结构模板；本地组合后得到完整配置 |
+| Mihomo / Clash | `Clash/` | 标准/广告 YAML 模板；本地组合后得到完整配置 |
+| sing-box | `sing-box/` | 标准/广告 JSON 模板；本地组合后得到完整配置 |
 | Surfboard | `Surfboard/` | 规则文件 |
 | Legacy Clash Premium | `LegacyClashPremium/` | 兼容格式规则文件 |
 
@@ -46,6 +46,10 @@ pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml
 pnpm run config -- compose singbox --nodes /absolute/path/base.json
 ```
 
+把组合后的文件托管到自己的 HTTPS 地址后，可在站点对应客户端面板粘贴该 URL，生成并打开 Surge、兼容 Mihomo GUI 或 sing-box 的导入 scheme。URL 只在浏览器本地编码，不会提交给 RuleMesh。
+
+客户端无法原生表达的规则类型不会被描述为等价支持；当前逐分类差异发布在 `Config/capability-gaps.json`，审阅基线位于 `sources/capability-gaps-approved.json`。新增或消失的能力缺口会阻断构建，必须更新理由和审阅日期。
+
 增加 `--advertising` 生成广告档，使用 `--output` 指定输出位置。节点底稿和合成结果写入被 Git 忽略的 `local/`，不会发布。
 
 ## 直接引用规则
@@ -66,6 +70,7 @@ Source/                 人工维护和继承的规则源
 sources/registry.json   自动同步的上游文件与固定 revision
 sources/maintained.json 固定快照、转换方式和许可来源
 sources/overrides.json  对同步分类执行有证据的 add/remove 修正
+sources/capability-gaps-approved.json  已审阅的客户端表达差异基线
 Build/                  构建、writer、配置组合和验收程序
 Modules/                Surge 模块
 Mock/                   拦截响应资源
@@ -73,6 +78,8 @@ public/                 本地生成目录，不提交源码仓库
 ```
 
 MetaCubeX 细分类固定到 `sources/registry.json` 中的提交。每日同步任务发现新提交后生成候选 PR；构建只使用已审阅并提交的 revision。Sukka 固定产物和官方网络事实记录在 `sources/maintained.json`，不会自动同步。`sources/overrides.json` 会在每次同步后重新应用有证据的 `add` 和 `remove`，因此自有修正不会被候选更新覆盖。
+
+自定义规则按语义进入同一条构建链：修改已有分类时，直接编辑 `Source/domainset`、`Source/non_ip` 或 `Source/ip` 中对应文件；修正自动同步的 MetaCubeX 域名时使用 `sources/overrides.json`，保留理由、证据和核查日期。新增分类还必须在 `Build/lib/client-config/routing-profile.ts` 指定策略；构建会拒绝没有策略且未声明为独立工具产物的分类，避免“规则已发布但完整配置没有使用”。
 
 ```sh
 pnpm run sync             # 检查是否存在新的候选输入
@@ -99,7 +106,7 @@ CI 还会使用固定 SHA-256 的 Mihomo 1.19.32 与 sing-box 1.14.3：
 
 - 解析标准档与广告档完整配置；
 - 编译全部 Mihomo domain MRS 与 sing-box SRS，并由 Mihomo 原生加载 classical/IP 文本 provider；
-- 通过隔离的本地 DNS、HTTP 代理和混合入站验证细服务、国内、局域网、兜底、服务 IP 与私有 IP 路由；
+- 通过隔离的本地 DNS、HTTP 代理和混合入站验证 AI、社交、流媒体、开发、直连服务、国内、局域网、兜底、官方服务 IP、私有 IP 与广告拒绝；
 - 验证配置引用文件、标准/广告隔离、顺序、自有规则重应用、许可证和发布目录。
 
 macOS 本地同时使用 Surge CLI 和 Shadowrocket GUI 验证。验收不会启用系统代理或替换当前正在使用的配置。
@@ -110,4 +117,4 @@ main 构建通过后，将同一棵 `public/` 完整同步到 `codingmesh/rulese
 
 ## 上游与许可
 
-`upstream` 指向 SukkaW/Surge，上游更新直接合并到当前代码。[NOTICE](NOTICE) 记录上游版权和 RuleMesh 修改说明。项目整体使用 [GNU AGPL-3.0](LICENSE)；第三方数据与依赖许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。
+RuleMesh 从 `SukkaW/Surge@6172daf80ac3f9a1d2dbdb9ad6b559554aa8ac62` 的代码树独立发布，不携带其祖先提交，也不依赖 Git `upstream` remote 或自动合并。后续只在明确需要时重新研究并人工采用设计或实现。[NOTICE](NOTICE) 记录原始版权和 RuleMesh 修改说明。项目整体使用 [GNU AGPL-3.0](LICENSE)；第三方数据与依赖许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。

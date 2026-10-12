@@ -12,7 +12,7 @@ async function main() {
     'Config/Shadowrocket/standard.conf', 'Config/Shadowrocket/advertising.conf', 'Config/Shadowrocket/standard.svg', 'Config/Shadowrocket/advertising.svg',
     'Config/surge/standard.conf', 'Config/surge/advertising.conf',
     'Config/mihomo/standard.yaml', 'Config/mihomo/advertising.yaml',
-    'Config/singbox/standard.json', 'Config/singbox/advertising.json'
+    'Config/singbox/standard.json', 'Config/singbox/advertising.json', 'Config/capability-gaps.json'
   ];
   for (let i = 0, len = required.length; i < len; i++) if (!await exists(required[i])) throw new Error(`Missing required artifact: ${required[i]}`);
   const index = await fsp.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
@@ -21,6 +21,8 @@ async function main() {
   if (index.includes('>Download<')) throw new Error('Configuration actions must describe URL or client import behavior');
   if (!index.includes('Open in Shadowrocket') || !index.includes('shadowrocket://config/add/https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf')) throw new Error('Shadowrocket must expose direct client import');
   if (!index.includes('Template URL') || !index.includes('must be composed with a node base before client import')) throw new Error('Non-importable templates must be labeled explicitly');
+  for (const scheme of ['surge:///install-config?url=', 'clash://install-config?url=', 'sing-box://import-remote-profile?url=']) if (!index.includes(scheme)) throw new Error(`Composed configuration importer is missing ${scheme}`);
+  if (!index.includes('Config/capability-gaps.json')) throw new Error('Published client capability gaps are not linked');
   for (const client of ['shadowrocket', 'surge', 'mihomo', 'singbox']) if (!index.includes(`data-client="${client}"`)) throw new Error(`Config switcher is missing ${client}`);
   const allPaths: string[] = [];
   async function walk(directory: string, prefix = ''): Promise<void> {
@@ -31,8 +33,10 @@ async function main() {
   }
   await walk(PUBLIC_DIR);
   if (allPaths.some(file => file.startsWith('rules/') || file.startsWith('configs/'))) throw new Error('Obsolete multi-page entry points remain published');
-  if (allPaths.some(file => /\bmy_(?:direct|git|plus|proxy|reject|tw|us)\b/.test(file))) throw new Error('Personal upstream outputs remain published');
+  if (allPaths.some(file => /\bmy[_-](?:direct|git|plus|proxy|reject|tw|us)\b/.test(file))) throw new Error('Personal upstream outputs remain published');
   if (allPaths.some(file => /\/(?:china|global)\.extra\./.test(file))) throw new Error('Redundant split source outputs remain published');
+  if (allPaths.some(file => /\/china_ip(?:_ipv6)?\./.test(file))) throw new Error('Unaudited China IP data remains published');
+  if (allPaths.some(file => file.includes('/stream_biliintl.'))) throw new Error('Stale Bilibili International split outputs remain published');
   if (allPaths.some(file => file.startsWith('Config/') && file.endsWith('.template'))) throw new Error('Download-only template paths remain published');
   const configFiles = allPaths.filter(file => file.startsWith('Config/') && /\.(?:conf|yaml|json)$/.test(file));
   const siteBase = 'https://codingmesh.github.io/ruleset/';
@@ -56,12 +60,22 @@ async function main() {
   if (advertisingPosition < 0) throw new Error('Advertising variant has no rejection resources');
   if (advertisingPosition > shadowAdvertising.indexOf('/global.conf')) throw new Error('Advertising rules must precede the global catch-all');
   if (!shadowStandard.includes('anthropic = select,ai,node-selection,DIRECT')) throw new Error('Shadowrocket service selector does not inherit the AI family');
+  for (const requiredReference of ['/non_ip/direct.conf', '/non_ip/apple_intelligence.conf', '/non_ip/microsoft_cdn.conf', '/ip/openai.no-resolve.conf', '/ip/telegram.no-resolve.conf']) {
+    if (!shadowStandard.includes(requiredReference)) throw new Error(`Maintained routing input is not integrated: ${requiredReference}`);
+  }
   const surgeStandard = await fsp.readFile(path.join(PUBLIC_DIR, 'Config/surge/standard.conf'), 'utf8');
   if (!surgeStandard.includes('RuleMesh-anthropic = select,RuleMesh-ai,RuleMesh-Nodes,DIRECT')) throw new Error('Surge service selector does not inherit the AI family');
   const mihomoStandard = parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/mihomo/standard.yaml'), 'utf8')) as { 'proxy-groups': Array<{ name: string, proxies: string[] }> };
   if (!mihomoStandard['proxy-groups'].some(group => group.name === 'RuleMesh-anthropic' && group.proxies[0] === 'RuleMesh-ai')) throw new Error('Mihomo service selector does not inherit the AI family');
   const singboxStandard = JSON.parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/singbox/standard.json'), 'utf8')) as { outbounds: Array<{ tag?: string, outbounds?: string[] }> };
   if (!singboxStandard.outbounds.some(outbound => outbound.tag === 'RuleMesh-anthropic' && outbound.outbounds?.[0] === 'RuleMesh-ai')) throw new Error('sing-box service selector does not inherit the AI family');
+  const capabilityGaps = JSON.parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/capability-gaps.json'), 'utf8')) as { targets: { mihomo: Array<{ type: string }>, singbox: Array<{ type: string }> } };
+  if (!capabilityGaps.targets.singbox.some(gap => gap.type === 'URL-REGEX') || !capabilityGaps.targets.singbox.some(gap => gap.type === 'IP-ASN') || !capabilityGaps.targets.singbox.some(gap => gap.type === 'MIXED-RESOLUTION')) throw new Error('sing-box capability gaps are not explicit');
+  const singboxRules = (JSON.parse(await fsp.readFile(path.join(PUBLIC_DIR, 'Config/singbox/standard.json'), 'utf8')) as { route: { rules: Array<{ action?: string, rule_set?: string[] }> } }).route.rules;
+  const noResolvePosition = singboxRules.findIndex(rule => rule.rule_set?.includes('rulemesh-ip-openai-no-resolve'));
+  const resolvePosition = singboxRules.findIndex(rule => rule.action === 'resolve');
+  const resolveAllowedPosition = singboxRules.findIndex(rule => rule.rule_set?.includes('rulemesh-ip-private-resolve'));
+  if (noResolvePosition < 0 || resolvePosition < 0 || resolveAllowedPosition < 0 || noResolvePosition > resolvePosition || resolvePosition > resolveAllowedPosition) throw new Error('sing-box does not preserve existing-only IP matching before DNS resolution');
   const sources = JSON.parse(await fsp.readFile(path.join(ROOT_DIR, 'sources/registry.json'), 'utf8')) as { upstream: { revision: string }, files: Array<{ category: string }> };
   if (!/^[a-f0-9]{40}$/.test(sources.upstream.revision)) throw new Error('Source revision is not immutable');
   for (let i = 0, len = sources.files.length; i < len; i++) {

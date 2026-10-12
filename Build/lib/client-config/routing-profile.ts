@@ -12,16 +12,17 @@ export interface PolicyGroup {
 export const partitions: Partition[] = ['domainset', 'non_ip', 'ip'];
 
 const serviceOrder = [
-  'anthropic', 'openai', 'gemini', 'copilot', 'xai', 'perplexity', 'apple-intelligence', 'ai-other', 'ai',
-  'telegram', 'discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit', 'youtube', 'netflix',
+  'anthropic', 'openai', 'openai.no-resolve', 'gemini', 'copilot', 'xai', 'perplexity', 'apple-intelligence', 'apple_intelligence', 'ai-other', 'ai',
+  'telegram', 'telegram.no-resolve', 'discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit', 'youtube', 'netflix',
   'disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'bilibili', 'apple-cn',
-  'icloud', 'apple-music', 'apple-tv', 'google-fcm', 'onedrive', 'npm', 'python', 'docker', 'github',
+  'icloud', 'apple-music', 'apple-tv', 'google-fcm', 'onedrive', 'microsoft_cdn', 'npm', 'python', 'docker', 'github',
   'gitlab', 'jetbrains', 'developer', 'steam-cn', 'game-downloads', 'steam', 'epic-games', 'playstation',
   'xbox', 'nintendo'
 ];
 const platformOrder = ['downloads', 'apple', 'google', 'microsoft', 'aws', 'digitalocean', 'cloudflare', 'games', 'download', 'cdn', 'speedtest', 'cloudmounter'];
 const domesticOrder = ['china', 'cdn-cn', 'domestic', 'domestic_cdn', 'neteasemusic', 'sogouinput'];
 const privateOrder = ['lan', 'private', 'private.resolve'];
+const directOrder = ['direct'];
 const advertisingOrder = ['advertising', 'reject', 'reject_extra', 'reject_phishing', 'reject-drop', 'reject-no-drop', 'reject-url-regex', 'reject_sukka'];
 const genericOrder = ['cdn-global', 'global', 'global_plus'];
 
@@ -31,20 +32,21 @@ const genericOrder = ['cdn-global', 'global', 'global_plus'];
 export const policyGroups: PolicyGroup[] = [
   { id: 'ai', categories: [], defaultPolicy: 'PROXY' },
   { id: 'anthropic', categories: ['anthropic'], defaultPolicy: 'PROXY', parent: 'ai' },
-  { id: 'openai', categories: ['openai'], defaultPolicy: 'PROXY', parent: 'ai' },
+  { id: 'openai', categories: ['openai', 'openai.no-resolve'], defaultPolicy: 'PROXY', parent: 'ai' },
   { id: 'gemini', categories: ['gemini'], defaultPolicy: 'PROXY', parent: 'ai' },
-  { id: 'ai-other', categories: ['copilot', 'xai', 'perplexity', 'apple-intelligence', 'ai-other', 'ai'], defaultPolicy: 'PROXY', parent: 'ai' },
+  { id: 'ai-other', categories: ['copilot', 'xai', 'perplexity', 'apple-intelligence', 'apple_intelligence', 'ai-other', 'ai'], defaultPolicy: 'PROXY', parent: 'ai' },
   { id: 'social', categories: ['discord', 'whatsapp', 'twitter', 'instagram', 'facebook', 'reddit'], defaultPolicy: 'PROXY' },
-  { id: 'telegram', categories: ['telegram', 'telegram_asn', 'teleproto'], defaultPolicy: 'PROXY', parent: 'social' },
+  { id: 'telegram', categories: ['telegram', 'telegram.no-resolve', 'telegram_asn', 'teleproto'], defaultPolicy: 'PROXY', parent: 'social' },
   { id: 'streaming', categories: ['disney', 'hbo', 'primevideo', 'twitch', 'tiktok', 'spotify', 'bilibili-intl', 'stream', 'stream_us', 'stream_eu', 'stream_hk', 'stream_tw', 'stream_jp', 'stream_kr'], defaultPolicy: 'PROXY' },
   { id: 'youtube', categories: ['youtube'], defaultPolicy: 'PROXY', parent: 'streaming' },
   { id: 'netflix', categories: ['netflix'], defaultPolicy: 'PROXY', parent: 'streaming' },
   { id: 'developer', categories: ['npm', 'python', 'docker', 'github', 'gitlab', 'jetbrains', 'developer'], defaultPolicy: 'PROXY' },
   { id: 'apple', categories: ['icloud', 'icloud_private_relay', 'apple-music', 'apple-tv', 'apple', 'apple_cdn', 'apple_services'], defaultPolicy: 'DIRECT' },
   { id: 'google', categories: ['google-fcm', 'google'], defaultPolicy: 'PROXY' },
-  { id: 'microsoft', categories: ['onedrive', 'microsoft'], defaultPolicy: 'DIRECT' },
+  { id: 'microsoft', categories: ['onedrive', 'microsoft_cdn', 'microsoft'], defaultPolicy: 'DIRECT' },
   { id: 'games', categories: ['steam', 'epic-games', 'playstation', 'xbox', 'nintendo', 'games'], defaultPolicy: 'PROXY' },
   { id: 'downloads', categories: ['game-download', 'game-downloads', 'downloads', 'download', 'cdn-global', 'cdn', 'aws', 'cloudflare', 'digitalocean', 'speedtest', 'cloudmounter'], defaultPolicy: 'PROXY' },
+  { id: 'direct', categories: ['direct'], defaultPolicy: 'DIRECT' },
   { id: 'china', categories: ['china', 'cdn-cn', 'apple-cn', 'apple_cn', 'steam-cn', 'bilibili', 'domestic', 'domestic_cdn', 'neteasemusic', 'sogouinput'], defaultPolicy: 'DIRECT' },
   { id: 'private', categories: ['private', 'private.resolve', 'lan'], defaultPolicy: 'DIRECT' },
   { id: 'advertising', categories: advertisingOrder, defaultPolicy: 'REJECT' },
@@ -52,6 +54,7 @@ export const policyGroups: PolicyGroup[] = [
 ];
 
 const categoryPolicy = new Map<string, string>();
+const standaloneCategories = new Set(['clash_fake_ip_filter']);
 for (let groupIndex = 0, groupLength = policyGroups.length; groupIndex < groupLength; groupIndex++) {
   const group = policyGroups[groupIndex];
   for (let categoryIndex = 0, categoryLength = group.categories.length; categoryIndex < categoryLength; categoryIndex++) {
@@ -64,6 +67,10 @@ for (let groupIndex = 0, groupLength = policyGroups.length; groupIndex < groupLe
 
 export function policyFor(category: string) { return categoryPolicy.get(category); }
 
+export function unmappedCategories(available: Set<string>) {
+  return [...available].filter(category => !categoryPolicy.has(category) && !standaloneCategories.has(category)).sort();
+}
+
 export function orderedCategories(available: Set<string>, includeAdvertising: boolean) {
   const selected: string[] = [];
   const append = (ids: string[]) => {
@@ -74,6 +81,7 @@ export function orderedCategories(available: Set<string>, includeAdvertising: bo
   };
   if (includeAdvertising) append(advertisingOrder);
   append(privateOrder);
+  append(directOrder);
   append(serviceOrder);
   append(platformOrder);
   append(domesticOrder);

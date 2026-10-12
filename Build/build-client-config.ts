@@ -5,15 +5,21 @@ import process from 'node:process';
 import qrcode from 'qrcode';
 import { parse, stringify } from 'yaml';
 
-import { PUBLIC_DIR } from './constants/dir';
+import { PUBLIC_DIR, ROOT_DIR } from './constants/dir';
 import { compareAndWriteFile } from './lib/create-file';
-import { activePolicyGroups, groupChoices, orderedCategories, partitions, policyFor } from './lib/client-config/routing-profile';
+import { activePolicyGroups, groupChoices, orderedCategories, partitions, policyFor, unmappedCategories } from './lib/client-config/routing-profile';
 import type { ConfigTarget, Partition } from './lib/client-config/routing-profile';
 import { task } from './trace';
+import { MIHOMO_UNSUPPORTED_RULE_TYPES } from './lib/writing-strategy/clash';
+import { SINGBOX_UNSUPPORTED_RULE_TYPES } from './lib/writing-strategy/singbox';
 
 interface RuleReference { id: string, partition: Partition, policy: string, path: string, tag: string }
+interface CapabilityGap { category: string, partition: Partition, type: string, count: number, examples: string[] }
+type ResolutionMode = 'existing-only' | 'resolve' | 'mixed-existing-only';
+interface CapabilityApproval { schemaVersion: number, checkedAt: string, rationale: Record<string, string>, gaps: { mihomo: string[], singbox: string[] } }
 
 const SITE_BASE = process.env.RULEMESH_SITE_BASE ?? 'https://codingmesh.github.io/ruleset/';
+const IP_RULE_TYPES = new Set(['IP-CIDR', 'IP-CIDR6', 'IP-ASN', 'GEOIP']);
 
 function validateSiteBase(base: string) {
   const url = new URL(base);
@@ -43,6 +49,8 @@ export async function clientReferences(target: ConfigTarget, includeAdvertising:
   const ids = await Promise.all(partitions.map(partition => idsFor(target, partition)));
   const all = new Set<string>();
   for (let i = 0; i < ids.length; i++) for (const id of ids[i]) all.add(id);
+  const unmapped = unmappedCategories(all);
+  if (unmapped.length) throw new Error(`Published ${target} categories have no routing policy: ${unmapped.join(', ')}`);
   const ordered = orderedCategories(all, includeAdvertising);
   const references: RuleReference[] = [];
   const spec = targetSpec(target);
@@ -94,6 +102,11 @@ function objectArray(value: unknown, label: string) {
   return value.map(item => plainObject(item, label));
 }
 function stringName(value: unknown, label: string) { if (typeof value !== 'string' || !value) throw new Error(`${label} must be a non-empty string`); return value; }
+
+export function assertNodeOnlySingboxRoute(route: Record<string, any>) {
+  const rules = objectArray(route.rules, 'route rules');
+  if (rules.length) throw new Error('sing-box node base must not contain route.rules; RuleMesh owns complete routing order');
+}
 
 async function shadowrocketConfiguration(includeAdvertising: boolean, base = SITE_BASE) {
   const references = await clientReferences('shadowrocket', includeAdvertising, base);
@@ -152,13 +165,16 @@ async function singboxConfiguration(nodeBase: string, includeAdvertising: boolea
   if (!outbounds.some(outbound => outbound.tag === 'RuleMesh-Direct')) outbounds.push({ type: 'direct', tag: 'RuleMesh-Direct' });
   outbounds.push({ type: 'selector', tag: 'RuleMesh-Nodes', outbounds: nodeTags });
   for (const group of activePolicyGroups(includeAdvertising)) if (group.defaultPolicy !== 'REJECT') outbounds.push({ type: 'selector', tag: `RuleMesh-${group.id}`, outbounds: groupChoices(group, 'RuleMesh-Nodes', 'RuleMesh-Direct', 'RuleMesh-Direct', 'RuleMesh-') });
-  const route = plainObject(document.route ?? {}, 'route'); const existingSets = objectArray(route.rule_set, 'rule sets'); const existingRules = objectArray(route.rules, 'route rules');
+  const route = plainObject(document.route ?? {}, 'route'); assertNodeOnlySingboxRoute(route); const existingSets = objectArray(route.rule_set, 'rule sets');
   const remoteSets = references.map(reference => ({ type: 'remote', tag: reference.tag, format: 'source', url: base + reference.path, update_interval: '1d', download_detour: 'RuleMesh-Nodes' }));
-  const rules: Record<string, unknown>[] = [...existingRules]; let resolved = false;
-  for (const reference of references) {
-    if (!resolved && reference.partition === 'ip') { rules.push({ action: 'resolve' }); resolved = true; }
-    rules.push(policyFor(reference.id) === 'advertising' ? { rule_set: [reference.tag], action: 'reject' } : { rule_set: [reference.tag], action: 'route', outbound: `RuleMesh-${reference.policy}` });
-  }
+  const rules: Record<string, unknown>[] = [];
+  const appendReference = (reference: RuleReference) => rules.push(policyFor(reference.id) === 'advertising' ? { rule_set: [reference.tag], action: 'reject' } : { rule_set: [reference.tag], action: 'route', outbound: `RuleMesh-${reference.policy}` });
+  for (let i = 0, len = references.length; i < len; i++) if (references[i].partition !== 'ip') appendReference(references[i]);
+  const ipReferences = references.filter(reference => reference.partition === 'ip');
+  const resolutionModes = await Promise.all(ipReferences.map(reference => singboxResolutionMode(reference)));
+  for (let i = 0, len = ipReferences.length; i < len; i++) if (resolutionModes[i] !== 'resolve') appendReference(ipReferences[i]);
+  rules.push({ action: 'resolve' });
+  for (let i = 0, len = ipReferences.length; i < len; i++) if (resolutionModes[i] === 'resolve') appendReference(ipReferences[i]);
   return JSON.stringify({ ...document, outbounds, route: { ...route, rule_set: [...existingSets, ...remoteSets], rules, final: 'RuleMesh-fallback' }, experimental: { ...plainObject(document.experimental ?? {}, 'experimental'), cache_file: { enabled: true } } }, null, 2) + '\n';
 }
 
@@ -171,6 +187,53 @@ function sampleBase(target: Exclude<ConfigTarget, 'shadowrocket'>) {
   if (target === 'surge') return '[General]\n\n[Proxy]\nREPLACE-ME = http, replace.invalid, 1\n';
   if (target === 'mihomo') return stringify({ proxies: [{ name: 'REPLACE-ME', type: 'http', server: 'replace.invalid', port: 1 }] });
   return JSON.stringify({ dns: { servers: [{ type: 'local', tag: 'local' }], final: 'local' }, outbounds: [{ type: 'http', tag: 'REPLACE-ME', server: 'replace.invalid', server_port: 1 }], route: {} });
+}
+
+async function capabilityGaps(target: 'mihomo' | 'singbox') {
+  const references = await clientReferences(target, true);
+  const unsupported = target === 'mihomo' ? MIHOMO_UNSUPPORTED_RULE_TYPES : SINGBOX_UNSUPPORTED_RULE_TYPES;
+  const gaps: CapabilityGap[] = [];
+  for (let referenceIndex = 0, referenceLength = references.length; referenceIndex < referenceLength; referenceIndex++) {
+    const reference = references[referenceIndex];
+    const source = path.join(PUBLIC_DIR, 'List', reference.partition, `${reference.id}.conf`);
+    let text: string; try { text = await fsp.readFile(source, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+    const byType = new Map<string, string[]>();
+    for (const line of text.split(/\r?\n/)) {
+      if (!line || line.charCodeAt(0) === 35 || line.includes('ruleset.marker.')) continue;
+      let type = line.slice(0, Math.max(0, line.indexOf(',')));
+      if (target === 'singbox' && type === 'PROCESS-NAME' && /[*?]/.test(line.slice(line.indexOf(',') + 1))) type = 'PROCESS-NAME-WILDCARD';
+      if (!unsupported.has(type)) continue;
+      const examples = byType.get(type) ?? []; examples.push(line); byType.set(type, examples);
+    }
+    for (const [type, examples] of byType) gaps.push({ category: reference.id, partition: reference.partition, type, count: examples.length, examples: examples.slice(0, 3) });
+    if (target === 'singbox' && reference.partition === 'ip' && await singboxResolutionMode(reference) === 'mixed-existing-only') gaps.push({ category: reference.id, partition: reference.partition, type: 'MIXED-RESOLUTION', count: 1, examples: ['Mixed no-resolve and resolve-allowed inputs are conservatively evaluated before DNS resolution.'] });
+  }
+  return gaps;
+}
+
+async function singboxResolutionMode(reference: RuleReference): Promise<ResolutionMode> {
+  const source = path.join(PUBLIC_DIR, 'List', reference.partition, `${reference.id}.conf`);
+  const text = await fsp.readFile(source, 'utf8'); let existingOnly = 0; let resolve = 0;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line || line.charCodeAt(0) === 35 || line.includes('ruleset.marker.')) continue;
+    const type = line.slice(0, Math.max(0, line.indexOf(',')));
+    if (!IP_RULE_TYPES.has(type)) continue;
+    if (line.endsWith(',no-resolve')) existingOnly++; else resolve++;
+  }
+  return existingOnly && resolve ? 'mixed-existing-only' : existingOnly ? 'existing-only' : 'resolve';
+}
+
+async function validateCapabilityGaps(gaps: { mihomo: CapabilityGap[], singbox: CapabilityGap[] }) {
+  const approval = JSON.parse(await fsp.readFile(path.join(ROOT_DIR, 'sources/capability-gaps-approved.json'), 'utf8')) as CapabilityApproval;
+  if (approval.schemaVersion !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(approval.checkedAt)) throw new Error('Invalid capability gap approval');
+  for (const target of ['mihomo', 'singbox'] as const) {
+    const actual = gaps[target].map(gap => `${gap.partition}/${gap.category}:${gap.type}`).sort();
+    const expected = [...approval.gaps[target]].sort();
+    const added = actual.filter(key => !expected.includes(key)); const removed = expected.filter(key => !actual.includes(key));
+    if (added.length || removed.length) throw new Error(`Unreviewed ${target} capability gap change; added=[${added.join(', ')}], removed=[${removed.join(', ')}]`);
+    for (let i = 0, len = actual.length; i < len; i++) { const type = actual[i].slice(actual[i].lastIndexOf(':') + 1); if (!approval.rationale[type]) throw new Error(`Capability gap ${type} has no approval rationale`); }
+  }
+  return approval;
 }
 
 export const buildClientConfig = task(require.main === module, __filename)(async (span) => {
@@ -195,7 +258,12 @@ export const buildClientConfig = task(require.main === module, __filename)(async
     '2. AI, social and streaming family selectors inherit that choice.',
     '3. Anthropic, OpenAI, Gemini, Telegram, YouTube and Netflix inherit their family and may be overridden independently.',
     '4. Private and mainland China traffic default to direct. Global fallback defaults to the root node selector.',
-    '5. The advertising profile evaluates reject rules before private, service, domestic and global rules; the standard profile contains no advertising rules.'
+    '5. The advertising profile evaluates reject rules before private, service, domestic and global rules; the standard profile contains no advertising rules.', '',
+    'Target-specific omissions that cannot be represented natively are listed in capability-gaps.json.'
   ], path.join(PUBLIC_DIR, 'Config', 'README.md')));
+  const targets = { mihomo: await capabilityGaps('mihomo'), singbox: await capabilityGaps('singbox') };
+  const approval = await validateCapabilityGaps(targets);
+  const gaps = { schemaVersion: 1, reviewedAt: approval.checkedAt, targets };
+  writes.push(compareAndWriteFile(span, JSON.stringify(gaps, null, 2).split('\n'), path.join(PUBLIC_DIR, 'Config', 'capability-gaps.json')));
   await Promise.all(writes);
 });

@@ -11,7 +11,8 @@ const outputs = [
 export const pruneOutput = task(require.main === module, __filename)(async () => {
   const removals: Array<Promise<void>> = [
     fsp.rm(path.join(PUBLIC_DIR, 'rules'), { force: true, recursive: true }),
-    fsp.rm(path.join(PUBLIC_DIR, 'configs'), { force: true, recursive: true })
+    fsp.rm(path.join(PUBLIC_DIR, 'configs'), { force: true, recursive: true }),
+    fsp.rm(path.join(PUBLIC_DIR, 'Internal', 'my-reject-adguardhome.txt'), { force: true })
   ];
   const templateTargets = [['surge', 'conf'], ['mihomo', 'yaml'], ['singbox', 'json']];
   const templateVariants = ['standard', 'advertising'];
@@ -32,7 +33,11 @@ export const pruneOutput = task(require.main === module, __filename)(async () =>
     ['non_ip', 'global_plus'],
     ['non_ip', 'apple_cdn'],
     ['non_ip', 'china.extra'],
-    ['non_ip', 'global.extra']
+    ['non_ip', 'global.extra'],
+    ['non_ip', 'stream_biliintl'],
+    ['ip', 'stream_biliintl'],
+    ['ip', 'china_ip'],
+    ['ip', 'china_ip_ipv6']
   ];
   for (let outputIndex = 0, outputLength = outputs.length; outputIndex < outputLength; outputIndex++) {
     const [directory, extension] = outputs[outputIndex];

@@ -51,20 +51,22 @@
 | Loyalsoldier | private、reject、服务、国内、通用、final 的基础分层思路 | `orderedCategories` 明确维护阻断、局域网、服务、平台、国内和通用顺序；不导入其 Clash 专用 YAML 数据 |
 | ACL4SSR | 总策略组、家族组和服务覆盖组成的层级选择 | AI、social、streaming 是家族 selector；服务 selector 默认继承家族，也允许节点或直连覆盖 |
 | MetaCubeX | 细服务分类和 Mihomo 原生 provider 能力 | 53 个固定 revision 分类进入 `Source/`；Mihomo 使用 domain/classical provider 并由原生程序验证 |
-| SagerNet / sing-box | 远程 rule-set、selector、route action 和 DNS 解析阶段 | sing-box 使用 source rule-set、selector、显式 resolve 过渡和 reject/route action；由固定版本编译和路由验证 |
+| SagerNet / sing-box | 远程 rule-set、selector、route action 和 DNS 解析阶段 | sing-box 使用 source rule-set、selector、显式 resolve 过渡和 reject/route action；可表达的 wildcard、进程、源地址、端口和网络类型由原生字段输出，其余差异进入 capability-gaps.json |
 
 这些项目是研究依据，不是 RuleMesh 的上游列表。以后调整设计时，应回到固定研究证据重新比较；只有真正消费数据或代码的项目才进入来源登记和第三方许可清单。
+
+无法原生表达的目标差异由 `sources/capability-gaps-approved.json` 审阅并固定，实际产物发布 `Config/capability-gaps.json`。新增或消失的差异会阻断构建；`no-resolve` IP 在 sing-box 中先于显式 `resolve` 动作匹配，混合解析文件采用保守的 existing-only 行为并登记差异。
 
 ## 5. 完整客户端配置的依据
 
 | 目标 | 采用来源/原生机制 | 接入和验收边界 |
 | --- | --- | --- |
 | Shadowrocket | [LingJingMaster 完整结构](https://github.com/LingJingMaster/Shadowrocket-Rules/blob/c61257022f647a825be423a84253386b9d3adc03/Shadowrocket.conf)、LOWERTOP 导入/组选择行为参考 | config URL/已验证 QR，首页节点与稳定组；标准/广告一致，资源刷新与配置刷新分别实测 |
-| Surge | Sukka DOMAIN-SET/RULE-SET 示例与 [原生 policy including](https://manual.nssurge.com/policy-groups/policy-including.html) | 完整模板配本地节点 compose；托管/include 作为待验证改善路径；DNS、资源刷新和升级后选择保留单独验收 |
-| Mihomo | Sukka/Loyalsoldier providers、[原生 rule-providers](https://wiki.metacubex.one/config/rule-providers/)、ACL4SSR 主组/服务组组织参考 | 完整 YAML 接入 proxies/providers；interval 明确；GUI 覆写声明版本，INI 不冒充 YAML |
-| sing-box | [原生 rule_set](https://sing-box.sagernet.org/configuration/rule-set/)、[route](https://sing-box.sagernet.org/configuration/route/)、[selector](https://sing-box.sagernet.org/configuration/outbound/selector/) | 完整 JSON 含真实 outbounds/DNS/CN 依赖；HTTP client、缓存与 update_interval 按固定版本验证；不假定机场 provider |
+| Surge | Sukka DOMAIN-SET/RULE-SET 示例与 [原生 policy including](https://manual.nssurge.com/policy-groups/policy-including.html) | 结构模板与本地节点底稿 compose 后形成完整配置；模板本身不冒充可运行配置 |
+| Mihomo | Sukka/Loyalsoldier providers、[原生 rule-providers](https://wiki.metacubex.one/config/rule-providers/)、ACL4SSR 主组/服务组组织参考 | YAML 模板接入用户 proxies/providers 后形成完整配置；interval 明确，INI 不冒充 YAML |
+| sing-box | [原生 rule_set](https://sing-box.sagernet.org/configuration/rule-set/)、[route](https://sing-box.sagernet.org/configuration/route/)、[selector](https://sing-box.sagernet.org/configuration/outbound/selector/) | JSON 模板接入真实 outbounds 和 DNS 后形成完整配置；拒绝会遮蔽 RuleMesh 顺序的既有 route.rules，能力差异公开列出 |
 
-General/DNS/IPv6/TUN 参数按方案默认取向及目标来源核查，用户已指定底稿设置不能被默认参数覆盖。节点出口由用户选择；完整公开模板不嵌入凭证，不开无需求的 MITM/脚本/重写。使用 native 下载/缓存/选择机制，不增加通用转换平台。
+General/DNS/IPv6/TUN 参数按方案默认取向及目标来源核查，用户已指定底稿设置不能被默认参数覆盖。节点出口由用户选择；公开模板不嵌入凭证，不开无需求的 MITM/脚本/重写。使用 native 下载、缓存和选择机制，不增加通用转换平台。
 
 ## 6. 如何证明采用成立
 

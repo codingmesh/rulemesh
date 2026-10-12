@@ -26,10 +26,6 @@ import { Counter } from 'foxts/counter';
   await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'global.conf'), callback(tldCountMap), 'ruleset');
   await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'ai.conf'), callback(tldCountMap), 'ruleset');
   await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'microsoft.conf'), callback(tldCountMap), 'ruleset');
-  await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'my_reject.conf'), callback(tldCountMap), 'ruleset');
-  await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'my_direct.conf'), callback(tldCountMap), 'ruleset');
-  await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'my_us.conf'), callback(tldCountMap), 'ruleset');
-  await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'my_tw.conf'), callback(tldCountMap), 'ruleset');
   await runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip', 'stream.conf'), callback(tldCountMap), 'ruleset');
 
   const countArr = Array.from(tldCountMap).sort((a, b) => b[1] - a[1]).filter(([, count]) => count > 20);

@@ -7,6 +7,8 @@ import { OUTPUT_CLASH_DIR } from '../../constants/dir';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { MARKER_DOMAIN } from '../../constants/description';
 
+export const MIHOMO_UNSUPPORTED_RULE_TYPES = new Set(['USER-AGENT', 'URL-REGEX', 'AND', 'OR', 'NOT']);
+
 export class ClashDomainSet extends BaseWriteStrategy {
   public readonly name = 'clash domainset';
 

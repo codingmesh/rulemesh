@@ -42,6 +42,30 @@ const SINGBOX_MAX_LENGTH = 120;
 const RULE_VALUE_INDENT = 6;
 
 type SingboxRuleValue = string[] | number[];
+const REGEX_SPECIAL = /[\\^$.*+?()[\]{}|]/;
+const PORT_EXACT = /^\d+$/;
+const PORT_RANGE = /^(\d*)[-:](\d*)$/;
+export const SINGBOX_UNSUPPORTED_RULE_TYPES = new Set(['USER-AGENT', 'URL-REGEX', 'IP-ASN', 'GEOIP', 'PROCESS-NAME-WILDCARD', 'AND', 'OR', 'NOT']);
+
+export function domainWildcardToRegex(wildcard: string) {
+  let result = '^';
+  for (let i = 0, len = wildcard.length; i < len; i++) {
+    const char = wildcard[i];
+    if (char === '*') result += '.*';
+    else if (char === '?') result += '.';
+    else result += REGEX_SPECIAL.test(char) ? `\\${char}` : char;
+  }
+  return result + '$';
+}
+
+function appendPorts(values: Set<string>, exact: number[], ranges: string[]) {
+  for (const value of values) {
+    if (PORT_EXACT.test(value)) { exact.push(Number(value)); continue; }
+    const range = PORT_RANGE.exec(value);
+    if (!range || (!range[1] && !range[2])) throw new Error(`Unsupported port expression for sing-box: ${value}`);
+    ranges.push(`${range[1]}:${range[2]}`);
+  }
+}
 
 /** prettified JSON of `arr` when it fits `budget`, else null -- bails out early */
 function inlineIfFits(arr: SingboxRuleValue, budget: number): string | null {
@@ -149,10 +173,22 @@ export class SingboxSource extends BaseWriteStrategy {
     );
   }
 
-  writeDomainWildcard = noop;
+  writeDomainWildcard(wildcard: string): void {
+    (this.singbox.domain_regex ??= []).push(domainWildcardToRegex(wildcard));
+  }
+
   writeUserAgents = noop;
-  writeProcessNames = noop;
-  writeProcessPaths = noop;
+
+  writeProcessNames(processName: Set<string>): void {
+    const exact: string[] = [];
+    for (const value of processName) if (!value.includes('*') && !value.includes('?')) exact.push(value);
+    appendArrayInPlace(this.singbox.process_name ??= [], exact);
+  }
+
+  writeProcessPaths(processPath: Set<string>): void {
+    appendArrayInPlace(this.singbox.process_path ??= [], Array.from(processPath));
+  }
+
   writeUrlRegexes = noop;
 
   writeIpCidrs(ipCidr: string[]): void {
@@ -170,10 +206,24 @@ export class SingboxSource extends BaseWriteStrategy {
   }
 
   writeGeoip = noop;
+
   writeIpAsns = noop;
-  writeSourceIpCidrs = noop;
-  writeSourcePorts = noop;
-  writeDestinationPorts = noop;
-  writeProtocols = noop;
+
+  writeSourceIpCidrs(sourceIpCidr: string[]): void {
+    appendArrayInPlace(this.singbox.source_ip_cidr ??= [], sourceIpCidr);
+  }
+
+  writeSourcePorts(port: Set<string>): void {
+    appendPorts(port, this.singbox.source_port ??= [], this.singbox.source_port_range ??= []);
+  }
+
+  writeDestinationPorts(port: Set<string>): void {
+    appendPorts(port, this.singbox.port ??= [], this.singbox.port_range ??= []);
+  }
+
+  writeProtocols(protocol: Set<string>): void {
+    appendArrayInPlace(this.singbox.network ??= [], Array.from(protocol, value => value.toLowerCase()));
+  }
+
   writeOtherRules = noop;
 }
