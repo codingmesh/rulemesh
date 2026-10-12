@@ -1,0 +1,119 @@
+name: Build and publish ruleset server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: rulemesh-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 12.8.1
+          run_install: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Read published output
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: codingmesh/rulemesh-site
+          ref: main
+          path: .cache/published-site
+          persist-credentials: false
+      - name: Read Sukka output baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: SukkaLab/ruleset.skk.moe
+          ref: master
+          path: .cache/sukka-site
+          persist-credentials: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test
+      - run: pnpm lint
+      - name: Prepare output tree
+        run: |
+          mkdir -p public
+          if [ -f .cache/published-site/.RULEMESH_RULESET_SERVER ]; then
+            rsync -a --delete --exclude='.git/' .cache/published-site/ public/
+            echo 'Reusing the previous Sukka-based RuleMesh output'
+          else
+            rsync -a --delete --exclude='.git/' .cache/sukka-site/ public/
+            rm -f public/CNAME public/deploy-check.txt
+            echo 'Publishing a completely new Sukka-based RuleMesh tree'
+          fi
+      - name: Build ruleset server
+        env:
+          PUBLIC_DIR: public
+          RULEMESH_SKIP_PREVIOUS_DOWNLOAD: 1
+          RULEMESH_SITE_BASE: https://codingmesh.github.io/rulemesh-site/
+        run: pnpm build
+      - name: Verify generated contract
+        run: |
+          test -s .BUILD_FINISHED
+          test -s public/.RULEMESH_RULESET_SERVER
+          test -s public/index.html
+          test -s public/Shadowrocket/domainset/anthropic.conf
+          test -s public/Config/Shadowrocket/standard.conf
+          test -s public/Config/Shadowrocket/advertising.conf
+          ! grep -q '<summary>Config</summary>' public/index.html
+      - name: Record deployment source
+        run: printf '%s\n' "$GITHUB_SHA" > public/deploy-check.txt
+      - name: Replace generated repository tree
+        run: rsync -a --delete --exclude='.git/' public/ .cache/published-site/
+      - name: Review generated output
+        run: |
+          git -C .cache/published-site add --all
+          {
+            echo '## Generated ruleset diff'
+            echo '```text'
+            git -C .cache/published-site diff --cached --stat
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          git -C .cache/published-site diff --cached --check
+      - name: Publish checked output
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          SITE_DEPLOY_KEY: ${{ secrets.RULEMESH_SITE_DEPLOY_KEY }}
+        run: |
+          test -n "$SITE_DEPLOY_KEY"
+          install -m 700 -d "$RUNNER_TEMP/rulemesh-ssh"
+          printf '%s\n' "$SITE_DEPLOY_KEY" > "$RUNNER_TEMP/rulemesh-ssh/key"
+          chmod 600 "$RUNNER_TEMP/rulemesh-ssh/key"
+          curl --fail --silent --show-error --max-time 30 https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("[ssh.github.com]:443 "+key);});' > "$RUNNER_TEMP/rulemesh-ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/rulemesh-ssh/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/rulemesh-ssh/known_hosts -o StrictHostKeyChecking=yes"
+          git -C .cache/published-site remote set-url origin ssh://git@ssh.github.com:443/codingmesh/rulemesh-site.git
+          git -C .cache/published-site config user.name RuleMesh
+          git -C .cache/published-site config user.email codingmesh@users.noreply.github.com
+          if ! git -C .cache/published-site diff --cached --quiet; then
+            git -C .cache/published-site commit -m "build: https://github.com/codingmesh/rulemesh/commit/$GITHUB_SHA"
+            git -C .cache/published-site push origin HEAD:main
+          fi
+      - name: Wait for GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          for attempt in $(seq 1 30); do
+            marker=$(curl --fail --silent --show-error --location --max-time 20 "https://codingmesh.github.io/rulemesh-site/deploy-check.txt?attempt=${attempt}" || true)
+            if [ "$marker" = "$GITHUB_SHA" ]; then exit 0; fi
+            sleep 10
+          done
+          echo 'Timed out waiting for the generated site' >&2
+          exit 1

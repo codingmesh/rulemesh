@@ -1,0 +1,34 @@
+import { fetchRemoteTextLines } from './lib/fetch-text-by-line';
+import { SpanCategory, task } from './trace';
+
+import { IPListOutput } from './lib/rules/ip';
+import { createFileDescription } from './constants/description';
+
+const getChnCidrPromise = Promise.all([
+  fetchRemoteTextLines('https://chnroutes2.cdn.skk.moe/chnroutes.txt', true),
+  fetchRemoteTextLines('https://gaoyifan.github.io/china-operator-ip/china6.txt', true)
+]);
+
+export const buildChnCidr = task(require.main === module, __filename)(async (span) => {
+  const [filteredCidr4, cidr6] = await span.traceChildPromise('download chnroutes2', getChnCidrPromise, SpanCategory.Network);
+
+  // Can not use SHARED_DESCRIPTION here as different license
+  const description = createFileDescription('CC BY-SA 2.0');
+
+  return Promise.all([
+    new IPListOutput(span, 'china_ip', false)
+      .withTitle('Sukka\'s Ruleset - Mainland China IPv4 CIDR')
+      .withDescription(description)
+      .appendDataSource('https://chnroutes2.cdn.skk.moe/chnroutes.txt')
+      .bulkAddCIDR4(filteredCidr4)
+      .write(),
+    new IPListOutput(span, 'china_ip_ipv6', false)
+      .withTitle('Sukka\'s Ruleset - Mainland China IPv6 CIDR')
+      .withDescription(description)
+      .appendDataSource(
+        'https://github.com/gaoyifan/china-operator-ip'
+      )
+      .bulkAddCIDR6(cidr6)
+      .write()
+  ]);
+});
