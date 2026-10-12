@@ -1,7 +1,7 @@
 export function createFileDescription(license = 'AGPL 3.0') {
   return [
     `License: ${license}`,
-    'Homepage: https://codingmesh.github.io/rulemesh-site/',
+    'Homepage: https://codingmesh.github.io/ruleset/',
     'GitHub: https://github.com/codingmesh/rulemesh',
     'Based on: https://github.com/SukkaW/Surge'
   ];

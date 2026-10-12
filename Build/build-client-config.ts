@@ -7,7 +7,7 @@ import { PUBLIC_DIR } from './constants/dir';
 import { compareAndWriteFile } from './lib/create-file';
 import { task } from './trace';
 
-const SITE_BASE = process.env.RULEMESH_SITE_BASE ?? 'https://codingmesh.github.io/rulemesh-site/';
+const SITE_BASE = process.env.RULEMESH_SITE_BASE ?? 'https://codingmesh.github.io/ruleset/';
 
 function validateSiteBase(base: string) {
   const url = new URL(base);

@@ -108,7 +108,7 @@ export const buildPublic = task(require.main === module, __filename)(async (span
         '# Source: [codingmesh/rulemesh](https://github.com/codingmesh/rulemesh)',
         '# RuleMesh is based on [SukkaW/Surge](https://github.com/SukkaW/Surge)',
         '',
-        '![GitHub repo size](https://img.shields.io/github/repo-size/codingmesh/rulemesh-site?style=flat-square)'
+        '![GitHub repo size](https://img.shields.io/github/repo-size/codingmesh/ruleset?style=flat-square)'
       ],
       path.join(PUBLIC_DIR, 'README.md')
     ),
@@ -165,10 +165,10 @@ function generateHtml(tree: TreeTypeArray) {
 
         <meta property="og:title" content="RuleMesh Ruleset Server">
         <meta property="og:type" content="Website">
-        <meta property="og:url" content="https://codingmesh.github.io/rulemesh-site/">
+        <meta property="og:url" content="https://codingmesh.github.io/ruleset/">
         <meta property="og:description" content="Maintained multi-client rulesets based on SukkaW/Surge">
         <meta name="twitter:card" content="summary">
-        <link rel="canonical" href="https://codingmesh.github.io/rulemesh-site/">
+        <link rel="canonical" href="https://codingmesh.github.io/ruleset/">
         <style>
           :root {
             --font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";

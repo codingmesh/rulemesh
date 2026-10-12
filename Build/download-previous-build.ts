@@ -13,7 +13,7 @@ import { requestWithLog } from './lib/fetch-retry';
 import { isDirectoryEmptySync } from './lib/misc';
 import { isCI } from 'ci-info';
 
-const GITHUB_CODELOAD_URL = 'https://codeload.github.com/codingmesh/rulemesh-site/tar.gz/main';
+const GITHUB_CODELOAD_URL = 'https://codeload.github.com/codingmesh/ruleset/tar.gz/main';
 
 export const downloadPreviousBuild = task(require.main === module, __filename)(async (span) => {
   if (fs.existsSync(PUBLIC_DIR) && !isDirectoryEmptySync(PUBLIC_DIR)) {
@@ -66,7 +66,7 @@ export const downloadPreviousBuild = task(require.main === module, __filename)(a
       // Since we are using GET, we need to end the write immediately
     ).end();
 
-    const pathPrefix = 'rulemesh-site-main/';
+    const pathPrefix = 'ruleset-main/';
 
     return pipeline(
       respBody,

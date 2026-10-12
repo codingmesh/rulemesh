@@ -4,7 +4,7 @@ RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续开发�
 
 上游原始使用说明保存在 [docs/sukka-upstream-readme.md](docs/sukka-upstream-readme.md)，便于核对继承行为和后续同步。
 
-规则站点：<https://codingmesh.github.io/rulemesh-site/>
+规则站点：<https://codingmesh.github.io/ruleset/>
 
 ## 目录
 
@@ -33,8 +33,8 @@ RuleMesh 增加：
 
 ## Shadowrocket 配置
 
-- 标准档：[配置 URL](https://codingmesh.github.io/rulemesh-site/Config/Shadowrocket/standard.conf) · [二维码](https://codingmesh.github.io/rulemesh-site/Config/Shadowrocket/standard.svg)
-- 广告拦截档：[配置 URL](https://codingmesh.github.io/rulemesh-site/Config/Shadowrocket/advertising.conf) · [二维码](https://codingmesh.github.io/rulemesh-site/Config/Shadowrocket/advertising.svg)
+- 标准档：[配置 URL](https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf) · [二维码](https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.svg)
+- 广告拦截档：[配置 URL](https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.conf) · [二维码](https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.svg)
 
 配置本身和规则文件使用同一个固定 HTTPS 站点，但 `Config/` 不出现在规则目录首页。节点与订阅仍保留在 Shadowrocket 客户端，由 `node-selection` 和各服务组选择。
 
