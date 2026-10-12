@@ -22,7 +22,7 @@
     "sync:verify": "pnpm run node ./Build/sync-sources.ts --verify-pinned",
     "native:routing": "pnpm run node ./Build/native-routing.ts"
   },
-  "author": "",
+  "author": "codingmesh <codingmesh@users.noreply.github.com> (https://github.com/codingmesh)",
   "license": "AGPL-3.0-only",
   "dependencies": {
     "@ghostery/adblocker": "^2.18.2",

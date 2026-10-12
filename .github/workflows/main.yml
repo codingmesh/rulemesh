@@ -126,7 +126,7 @@ jobs:
           curl --fail --silent --show-error --max-time 30 https://api.github.com/meta | node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const key of JSON.parse(s).ssh_keys)console.log("[ssh.github.com]:443 "+key);});' > "$RUNNER_TEMP/rulemesh-ssh/known_hosts"
           export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/rulemesh-ssh/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/rulemesh-ssh/known_hosts -o StrictHostKeyChecking=yes"
           git -C .cache/published-site remote set-url origin ssh://git@ssh.github.com:443/codingmesh/ruleset.git
-          git -C .cache/published-site config user.name RuleMesh
+          git -C .cache/published-site config user.name codingmesh
           git -C .cache/published-site config user.email codingmesh@users.noreply.github.com
           if ! git -C .cache/published-site diff --cached --quiet; then
             git -C .cache/published-site commit -m "build: https://github.com/codingmesh/rulemesh/commit/$GITHUB_SHA"

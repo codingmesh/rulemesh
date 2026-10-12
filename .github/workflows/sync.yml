@@ -33,7 +33,7 @@ jobs:
         run: |
           revision=$(node -p "require('./sources/registry.json').upstream.revision.slice(0,12)")
           branch="automation/ruleset-${revision}"
-          git config user.name RuleMesh
+          git config user.name codingmesh
           git config user.email codingmesh@users.noreply.github.com
           git switch -c "$branch"
           git add Source sources
