@@ -9,7 +9,10 @@ const outputs = [
   ['LegacyClashPremium', 'txt'], ['Surfboard', 'conf'], ['sing-box', 'json']
 ];
 export const pruneOutput = task(require.main === module, __filename)(async () => {
-  const removals: Array<Promise<void>> = [];
+  const removals: Array<Promise<void>> = [
+    fsp.rm(path.join(PUBLIC_DIR, 'rules'), { force: true, recursive: true }),
+    fsp.rm(path.join(PUBLIC_DIR, 'configs'), { force: true, recursive: true })
+  ];
   for (let outputIndex = 0, outputLength = outputs.length; outputIndex < outputLength; outputIndex++) {
     const [directory, extension] = outputs[outputIndex];
     for (let idIndex = 0, idLength = removedIds.length; idIndex < idLength; idIndex++) {

@@ -7,7 +7,7 @@ import { PUBLIC_DIR, ROOT_DIR } from './constants/dir';
 async function main() {
   async function exists(relative: string) { try { const stat = await fsp.stat(path.join(PUBLIC_DIR, relative)); return stat.isFile() && stat.size > 0; } catch { return false; } }
   const required = [
-    'index.html', 'rules/index.html', 'configs/index.html', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', '.RULEMESH_RULESET_SERVER',
+    'index.html', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', '.RULEMESH_RULESET_SERVER',
     'Shadowrocket/domainset/anthropic.conf', 'List/domainset/anthropic.conf', 'Clash/domainset/anthropic.txt', 'sing-box/domainset/anthropic.json',
     'Config/Shadowrocket/standard.conf', 'Config/Shadowrocket/advertising.conf', 'Config/Shadowrocket/standard.svg', 'Config/Shadowrocket/advertising.svg',
     'Config/surge/standard.conf.template', 'Config/surge/advertising.conf.template',
@@ -16,11 +16,9 @@ async function main() {
   ];
   for (let i = 0, len = required.length; i < len; i++) if (!await exists(required[i])) throw new Error(`Missing required artifact: ${required[i]}`);
   const index = await fsp.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
-  const rulesIndex = await fsp.readFile(path.join(PUBLIC_DIR, 'rules/index.html'), 'utf8');
-  const configsIndex = await fsp.readFile(path.join(PUBLIC_DIR, 'configs/index.html'), 'utf8');
-  if (index.includes('<ul class="tree">') || !index.includes('href="rules/"') || !index.includes('href="configs/"')) throw new Error('Home page must route users without embedding the rules tree');
-  if (rulesIndex.includes('<summary>Config</summary>') || !rulesIndex.includes('<ul class="tree">')) throw new Error('Config must remain outside the Sukka-style ruleset tree');
-  for (const client of ['Shadowrocket', 'Surge', 'Mihomo', 'sing-box']) if (!configsIndex.includes(client)) throw new Error(`Config page is missing ${client}`);
+  if (!index.includes('data-view="overview"') || !index.includes('data-view="rules"') || !index.includes('data-view="configs"') || !index.includes('<ul class="tree">')) throw new Error('Single entry must switch overview, rules and configs in place');
+  if (index.includes('<summary>Config</summary>')) throw new Error('Config artifacts must remain outside the Sukka-style ruleset tree');
+  for (const client of ['shadowrocket', 'surge', 'mihomo', 'singbox']) if (!index.includes(`data-client="${client}"`)) throw new Error(`Config switcher is missing ${client}`);
   const allPaths: string[] = [];
   async function walk(directory: string, prefix = ''): Promise<void> {
     for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {
@@ -29,6 +27,7 @@ async function main() {
     }
   }
   await walk(PUBLIC_DIR);
+  if (allPaths.some(file => file.startsWith('rules/') || file.startsWith('configs/'))) throw new Error('Obsolete multi-page entry points remain published');
   if (allPaths.some(file => /\bmy_(?:direct|git|plus|proxy|reject|tw|us)\b/.test(file))) throw new Error('Personal upstream outputs remain published');
   const configFiles = allPaths.filter(file => file.startsWith('Config/') && /\.(?:conf|yaml|json)(?:\.template)?$/.test(file));
   const siteBase = 'https://codingmesh.github.io/ruleset/';

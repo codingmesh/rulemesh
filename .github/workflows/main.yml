@@ -72,12 +72,10 @@ jobs:
           test -s .BUILD_FINISHED
           test -s public/.RULEMESH_RULESET_SERVER
           test -s public/index.html
-          test -s public/rules/index.html
-          test -s public/configs/index.html
           test -s public/Shadowrocket/domainset/anthropic.conf
           test -s public/Config/Shadowrocket/standard.conf
           test -s public/Config/Shadowrocket/advertising.conf
-          ! grep -q '<summary>Config</summary>' public/rules/index.html
+          ! grep -q '<summary>Config</summary>' public/index.html
       - name: Run complete artifact acceptance
         env:
           PUBLIC_DIR: public
