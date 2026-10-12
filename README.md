@@ -34,9 +34,9 @@ RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护�
 
 线上模板位于：
 
-- `Config/surge/{standard,advertising}.conf.template`
-- `Config/mihomo/{standard,advertising}.yaml.template`
-- `Config/singbox/{standard,advertising}.json.template`
+- `Config/surge/{standard,advertising}.conf`
+- `Config/mihomo/{standard,advertising}.yaml`
+- `Config/singbox/{standard,advertising}.json`
 
 模板中的 `REPLACE-ME` 只表示节点注入位置。推荐使用本地组合命令，把自己的节点底稿与当前规则结构合成可运行配置：
 

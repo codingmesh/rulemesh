@@ -184,7 +184,7 @@ export const buildClientConfig = task(require.main === module, __filename)(async
     for (const target of ['surge', 'mihomo', 'singbox'] as const) {
       const content = await composeClientConfiguration(target, sampleBase(target), advertising);
       const extension = target === 'mihomo' ? 'yaml' : target === 'singbox' ? 'json' : 'conf';
-      writes.push(compareAndWriteFile(span, content.trimEnd().split('\n'), path.join(PUBLIC_DIR, 'Config', target, `${variant}.${extension}.template`)));
+      writes.push(compareAndWriteFile(span, content.trimEnd().split('\n'), path.join(PUBLIC_DIR, 'Config', target, `${variant}.${extension}`)));
     }
   }
   writes.push(compareAndWriteFile(span, [

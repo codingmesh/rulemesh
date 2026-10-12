@@ -13,6 +13,14 @@ export const pruneOutput = task(require.main === module, __filename)(async () =>
     fsp.rm(path.join(PUBLIC_DIR, 'rules'), { force: true, recursive: true }),
     fsp.rm(path.join(PUBLIC_DIR, 'configs'), { force: true, recursive: true })
   ];
+  const templateTargets = [['surge', 'conf'], ['mihomo', 'yaml'], ['singbox', 'json']];
+  const templateVariants = ['standard', 'advertising'];
+  for (let targetIndex = 0, targetLength = templateTargets.length; targetIndex < targetLength; targetIndex++) {
+    const target = templateTargets[targetIndex];
+    for (let variantIndex = 0, variantLength = templateVariants.length; variantIndex < variantLength; variantIndex++) {
+      removals.push(fsp.rm(path.join(PUBLIC_DIR, 'Config', target[0], `${templateVariants[variantIndex]}.${target[1]}.template`), { force: true }));
+    }
+  }
   for (let outputIndex = 0, outputLength = outputs.length; outputIndex < outputLength; outputIndex++) {
     const [directory, extension] = outputs[outputIndex];
     for (let idIndex = 0, idLength = removedIds.length; idIndex < idLength; idIndex++) {

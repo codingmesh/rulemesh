@@ -92,10 +92,10 @@ jobs:
           echo 'cadbaded70a635d0c37bf52614d8e3116542243247211e0b441328595c62acb6  '"$tools/sing-box.tar.gz" | sha256sum --check
           tar -xzf "$tools/sing-box.tar.gz" -C "$tools"
           singbox="$tools/sing-box-1.14.3-linux-amd64-glibc/sing-box"
-          "$tools/mihomo" -t -f public/Config/mihomo/standard.yaml.template
-          "$tools/mihomo" -t -f public/Config/mihomo/advertising.yaml.template
-          "$singbox" check -c public/Config/singbox/standard.json.template
-          "$singbox" check -c public/Config/singbox/advertising.json.template
+          "$tools/mihomo" -t -f public/Config/mihomo/standard.yaml
+          "$tools/mihomo" -t -f public/Config/mihomo/advertising.yaml
+          "$singbox" check -c public/Config/singbox/standard.json
+          "$singbox" check -c public/Config/singbox/advertising.json
           for source in public/Clash/domainset/*.txt; do "$tools/mihomo" convert-ruleset domain text "$source" "$tools/mrs/domainset-$(basename "${source%.txt}").mrs"; done
           for source in public/sing-box/domainset/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/domainset-$(basename "${source%.json}").srs"; done
           for source in public/sing-box/non_ip/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/non_ip-$(basename "${source%.json}").srs"; done
