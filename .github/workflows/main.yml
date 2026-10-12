@@ -49,6 +49,7 @@ jobs:
       - run: pnpm exec tsc --noEmit
       - run: pnpm test
       - run: pnpm lint
+      - run: pnpm run sync:verify
       - name: Prepare output tree
         run: |
           mkdir -p public
@@ -75,6 +76,31 @@ jobs:
           test -s public/Config/Shadowrocket/standard.conf
           test -s public/Config/Shadowrocket/advertising.conf
           ! grep -q '<summary>Config</summary>' public/index.html
+      - name: Run complete artifact acceptance
+        env:
+          PUBLIC_DIR: public
+        run: pnpm acceptance
+      - name: Validate Mihomo and sing-box natively
+        run: |
+          tools="$RUNNER_TEMP/rulemesh-tools"
+          mkdir -p "$tools/mrs" "$tools/srs"
+          curl --fail --location --retry 3 --output "$tools/mihomo.gz" https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-linux-amd64-compatible-v1.19.32.gz
+          echo 'ba3ce607747a07f948fc35780e108a4a7c7f552a38b9bd4d115f313ebcb89c20  '"$tools/mihomo.gz" | sha256sum --check
+          gzip --decompress "$tools/mihomo.gz"
+          chmod +x "$tools/mihomo"
+          curl --fail --location --retry 3 --output "$tools/sing-box.tar.gz" https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64-glibc.tar.gz
+          echo 'cadbaded70a635d0c37bf52614d8e3116542243247211e0b441328595c62acb6  '"$tools/sing-box.tar.gz" | sha256sum --check
+          tar -xzf "$tools/sing-box.tar.gz" -C "$tools"
+          singbox="$tools/sing-box-1.14.3-linux-amd64-glibc/sing-box"
+          "$tools/mihomo" -t -f public/Config/mihomo/standard.yaml.template
+          "$tools/mihomo" -t -f public/Config/mihomo/advertising.yaml.template
+          "$singbox" check -c public/Config/singbox/standard.json.template
+          "$singbox" check -c public/Config/singbox/advertising.json.template
+          for source in public/Clash/domainset/*.txt; do "$tools/mihomo" convert-ruleset domain text "$source" "$tools/mrs/domainset-$(basename "${source%.txt}").mrs"; done
+          for source in public/sing-box/domainset/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/domainset-$(basename "${source%.json}").srs"; done
+          for source in public/sing-box/non_ip/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/non_ip-$(basename "${source%.json}").srs"; done
+          for source in public/sing-box/ip/*.json; do "$singbox" rule-set compile "$source" -o "$tools/srs/ip-$(basename "${source%.json}").srs"; done
+          PUBLIC_DIR=public RULEMESH_MIHOMO="$tools/mihomo" RULEMESH_SING_BOX="$singbox" pnpm run native:routing
       - name: Record deployment source
         run: printf '%s\n' "$GITHUB_SHA" > public/deploy-check.txt
       - name: Replace generated repository tree

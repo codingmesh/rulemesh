@@ -23,6 +23,7 @@ import { downloadMockAssets } from './download-mock-assets';
 import { buildPublic } from './build-public';
 import { buildCloudMounterRules } from './build-cloudmounter-rules';
 import { buildClientConfig } from './build-client-config';
+import { pruneOutput } from './prune-output';
 
 import { printBuildReport, whyIsNodeRunning } from './trace';
 import type { TraceResult } from './trace';
@@ -120,7 +121,7 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
     ]);
 
     appendArrayInPlace(traces, telegramTraces);
-    traces.push(await buildClientConfig(), await buildPublic());
+    traces.push(await pruneOutput(), await buildClientConfig(), await buildPublic());
 
     // write a file to demonstrate that the build is finished
     fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');

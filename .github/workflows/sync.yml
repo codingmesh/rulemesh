@@ -1,0 +1,42 @@
+name: Sync RuleMesh sources
+on:
+  schedule:
+    - cron: "37 6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 12.8.1
+          run_install: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run sync -- --write
+      - id: changes
+        run: |
+          if git diff --quiet -- Source sources; then echo 'changed=false' >> "$GITHUB_OUTPUT"; else echo 'changed=true' >> "$GITHUB_OUTPUT"; fi
+      - if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          revision=$(node -p "require('./sources/registry.json').upstream.revision.slice(0,12)")
+          branch="automation/ruleset-${revision}"
+          git config user.name RuleMesh
+          git config user.email codingmesh@users.noreply.github.com
+          git switch -c "$branch"
+          git add Source sources
+          git commit -m "chore: sync ruleset sources to ${revision}"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "chore: sync ruleset sources to ${revision}" --body "Updates pinned MetaCubeX rule sources. Review the generated ruleset diff in CI before merging."

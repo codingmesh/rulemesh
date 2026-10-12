@@ -1,61 +1,83 @@
 # RuleMesh
 
-RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 继续维护的多客户端规则集项目。项目直接使用 Sukka 的规则处理、格式 writer、稳定写入和静态目录生成，不维护第二套规则引擎。
+RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护的多客户端规则集工程。项目直接扩展 Sukka 的 `Source → Build → writer → public` 链路，不维护第二套规则引擎。
 
 - 规则目录：<https://codingmesh.github.io/ruleset/>
 - 生成仓库：<https://github.com/codingmesh/ruleset>
-- 上游源码：<https://github.com/SukkaW/Surge>
+- 源码仓库：<https://github.com/codingmesh/rulemesh>
 
-公开站点只有一个 ruleset 目录页。它用于浏览和引用规则文件，不承担项目文档或配置向导职责；使用说明集中保留在本 README。
+公开站点只有一个 ruleset 目录页，用于浏览和引用规则文件。完整配置、组合工具和维护说明集中在本 README，避免把规则服务器做成多入口文档站。
 
-## 当前提供什么
+## 客户端交付
 
-| 客户端 | 生成目录 | 交付内容 |
+| 客户端 | 规则目录 | 完整配置交付 |
 | --- | --- | --- |
-| Surge | `List/` | DOMAIN-SET、RULE-SET |
-| Shadowrocket | `Shadowrocket/` | RULE-SET；另有可直接导入的完整配置 |
-| Mihomo / Clash | `Clash/` | domain、classical、IP 规则文件 |
-| sing-box | `sing-box/` | headless rule-set JSON |
+| Shadowrocket | `Shadowrocket/` | 标准/广告完整配置 URL 与二维码，可直接导入 |
+| Surge | `List/` | 标准/广告完整结构模板；使用本地节点底稿组合 |
+| Mihomo / Clash | `Clash/` | 标准/广告完整 YAML 模板；使用本地节点底稿组合 |
+| sing-box | `sing-box/` | 标准/广告完整 JSON 模板；使用本地节点底稿组合 |
 | Surfboard | `Surfboard/` | 规则文件 |
 | Legacy Clash Premium | `LegacyClashPremium/` | 兼容格式规则文件 |
 
-目前只有 **Shadowrocket** 提供可直接导入的完整配置。Surge、Mihomo 和 sing-box 当前提供规则产物，需要从各自已有配置引用；项目不会把规则文件描述成完整客户端配置。
+标准档不启用广告拦截；广告档显式增加对应规则和拒绝策略。
 
-## Shadowrocket
-
-标准配置不启用广告拦截；广告档显式增加拦截规则组。节点和订阅仍保留在客户端，导入后通过 `node-selection` 和各服务组选择。
+### Shadowrocket
 
 - 标准档：[配置 URL](https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.conf) · [二维码](https://codingmesh.github.io/ruleset/Config/Shadowrocket/standard.svg)
 - 广告档：[配置 URL](https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.conf) · [二维码](https://codingmesh.github.io/ruleset/Config/Shadowrocket/advertising.svg)
 
-`Config/` 与规则文件发布在同一 HTTPS 地址下，但不会显示在 ruleset 目录树中。
+配置不包含节点或订阅凭证；导入后通过 `node-selection` 和各服务组选择客户端已有节点。
 
-## 在已有配置中引用规则
+### Surge、Mihomo、sing-box
 
-以 Anthropic 域名规则为例：
+线上模板位于：
+
+- `Config/surge/{standard,advertising}.conf.template`
+- `Config/mihomo/{standard,advertising}.yaml.template`
+- `Config/singbox/{standard,advertising}.json.template`
+
+模板中的 `REPLACE-ME` 只表示节点注入位置。推荐使用本地组合命令，把自己的节点底稿与当前规则结构合成可运行配置：
+
+```sh
+pnpm run config -- compose surge --nodes /absolute/path/base.conf
+pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml
+pnpm run config -- compose singbox --nodes /absolute/path/base.json
+```
+
+增加 `--advertising` 生成广告档，使用 `--output` 指定输出位置。节点底稿和合成结果写入被 Git 忽略的 `local/`，不会发布。
+
+## 直接引用规则
+
+以 Anthropic 为例：
 
 - Surge：`https://codingmesh.github.io/ruleset/List/domainset/anthropic.conf`
 - Shadowrocket：`https://codingmesh.github.io/ruleset/Shadowrocket/domainset/anthropic.conf`
 - Mihomo：`https://codingmesh.github.io/ruleset/Clash/domainset/anthropic.txt`
 - sing-box：`https://codingmesh.github.io/ruleset/sing-box/domainset/anthropic.json`
 
-其他分类遵循相同目录和文件名约定，可从规则目录直接查看。
+其他分类遵循相同目录和文件名约定。
 
-## 仓库结构
+## 规则维护
 
 ```text
-Source/   人工维护的规则源
-Build/    构建任务、规则模型、客户端 writer 和站点生成
-Modules/  Surge 模块
-Mock/     拦截响应资源
-public/   本地生成目录，不提交源码仓库
+Source/                 人工维护和继承的规则源
+sources/registry.json   自动同步的上游文件与固定 revision
+sources/overrides.json  RuleMesh 自有补充
+Build/                  构建、writer、配置组合和验收程序
+Modules/                Surge 模块
+Mock/                   拦截响应资源
+public/                 本地生成目录，不提交源码仓库
 ```
 
-新增分类直接进入 `Source/domainset`、`Source/non_ip` 或 `Source/ip`。新增客户端格式应扩展 `Build/lib/writing-strategy` 并接入现有 `FileOutput`，不要建立平行生成器。
+MetaCubeX 细分类固定到 `sources/registry.json` 中的提交。每日同步任务发现新提交后生成候选 PR；构建只使用已审阅并提交的 revision。`sources/overrides.json` 会在每次同步后重新应用，因此自有补充不会被上游更新覆盖。
 
-## 本地构建
+```sh
+pnpm run sync             # 检查是否存在新的候选输入
+pnpm run sync -- --write  # 更新到最新上游，供候选 PR 使用
+pnpm run sync:verify      # 验证当前固定输入可重现
+```
 
-需要 `.node-version` 指定的 Node.js 和 `packageManager` 指定的 pnpm。
+## 构建与验收
 
 ```sh
 pnpm install --frozen-lockfile
@@ -63,19 +85,22 @@ pnpm exec tsc --noEmit
 pnpm test
 pnpm lint
 pnpm build
+PUBLIC_DIR=public pnpm acceptance
 ```
 
-`pnpm build` 生成 `public/`。CI 将同一棵产物完整同步到 `codingmesh/ruleset`，随后等待 GitHub Pages 返回当前源码提交标记。
+CI 还会使用固定 SHA-256 的 Mihomo 1.19.32 与 sing-box 1.14.3：
 
-## 上游同步
+- 解析标准档与广告档完整配置；
+- 编译全部 Mihomo domain MRS 与 sing-box SRS，并由 Mihomo 原生加载 classical/IP 文本 provider；
+- 通过隔离的本地 DNS、HTTP 代理和混合入站验证细服务、国内、局域网、兜底、服务 IP 与私有 IP 路由；
+- 验证配置引用文件、标准/广告隔离、顺序、自有规则重应用、许可证和发布目录。
 
-`upstream` 指向 SukkaW/Surge。上游更新直接合并进当前代码，再处理 RuleMesh 对相同模块的改动并运行完整验证。
+macOS 本地同时使用 Surge CLI 和 Shadowrocket GUI 验证。验收不会启用系统代理或替换当前正在使用的配置。
 
-```sh
-git fetch upstream master
-git merge upstream/master
-```
+## 发布
 
-## 许可
+main 构建通过后，将同一棵 `public/` 完整同步到 `codingmesh/ruleset`，再等待 GitHub Pages 返回当前源码提交标记。`Config/` 与规则文件共用固定 HTTPS 地址，但不显示在 ruleset 目录树中。
 
-项目整体使用 [GNU AGPL-3.0](LICENSE)。[NOTICE](NOTICE) 记录 SukkaW/Surge 上游版权和 RuleMesh 修改说明；第三方规则数据及依赖许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。
+## 上游与许可
+
+`upstream` 指向 SukkaW/Surge，上游更新直接合并到当前代码。[NOTICE](NOTICE) 记录上游版权和 RuleMesh 修改说明。项目整体使用 [GNU AGPL-3.0](LICENSE)；第三方数据与依赖许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `licenses/`。

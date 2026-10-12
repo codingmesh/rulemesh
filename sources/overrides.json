@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "add": [
+    {
+      "category": "anthropic",
+      "value": ".claude.app",
+      "reason": "Claude Desktop official network requirements",
+      "evidence": "https://code.claude.com/docs/en/desktop#network-access-requirements",
+      "checkedAt": "2026-10-11"
+    }
+  ]
+}

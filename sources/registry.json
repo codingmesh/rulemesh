@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "MetaCubeX/meta-rules-dat",
+    "branch": "meta",
+    "revision": "83c8208bdfae92b1caaa29745f51f233b6f1847e"
+  },
+  "files": [
+    {
+      "category": "advertising",
+      "path": "geo/geosite/category-ads-all.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "ai-other",
+      "path": "geo/geosite/category-ai-chat-!cn.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "anthropic",
+      "path": "geo/geosite/anthropic.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "apple",
+      "path": "geo/geosite/apple.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "apple-intelligence",
+      "path": "geo/geosite/apple-intelligence.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "apple-music",
+      "path": "geo/geosite/apple-music.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "apple-tv",
+      "path": "geo/geosite/apple-tvplus.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "aws",
+      "path": "geo/geosite/aws.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "bilibili",
+      "path": "geo/geosite/bilibili.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "bilibili-intl",
+      "path": "geo/geosite/biliintl.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "cdn-cn",
+      "path": "geo/geosite/category-cdn-cn.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "cdn-global",
+      "path": "geo/geosite/category-cdn-!cn.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "cloudflare",
+      "path": "geo/geosite/cloudflare.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "copilot",
+      "path": "geo/geosite/github-copilot.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "developer",
+      "path": "geo/geosite/category-dev.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "digitalocean",
+      "path": "geo/geosite/digitalocean.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "discord",
+      "path": "geo/geosite/discord.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "disney",
+      "path": "geo/geosite/disney.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "docker",
+      "path": "geo/geosite/docker.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "epic-games",
+      "path": "geo/geosite/epicgames.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "facebook",
+      "path": "geo/geosite/facebook.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "games",
+      "path": "geo/geosite/category-games.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "gemini",
+      "path": "geo/geosite/google-gemini.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "github",
+      "path": "geo/geosite/github.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "gitlab",
+      "path": "geo/geosite/gitlab.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "google",
+      "path": "geo/geosite/google.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "google-fcm",
+      "path": "geo/geosite/googlefcm.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "hbo",
+      "path": "geo/geosite/hbo.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "icloud",
+      "path": "geo/geosite/icloud.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "instagram",
+      "path": "geo/geosite/instagram.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "jetbrains",
+      "path": "geo/geosite/jetbrains.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "microsoft",
+      "path": "geo/geosite/microsoft.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "netflix",
+      "path": "geo/geosite/netflix.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "nintendo",
+      "path": "geo/geosite/nintendo.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "npm",
+      "path": "geo/geosite/npmjs.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "onedrive",
+      "path": "geo/geosite/onedrive.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "openai",
+      "path": "geo/geosite/openai.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "perplexity",
+      "path": "geo/geosite/perplexity.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "playstation",
+      "path": "geo/geosite/playstation.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "primevideo",
+      "path": "geo/geosite/primevideo.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "python",
+      "path": "geo/geosite/python.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "reddit",
+      "path": "geo/geosite/reddit.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "spotify",
+      "path": "geo/geosite/spotify.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "steam",
+      "path": "geo/geosite/steam.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "steam-cn",
+      "path": "geo/geosite/steam@cn.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "telegram",
+      "path": "geo/geosite/telegram.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "tiktok",
+      "path": "geo/geosite/tiktok.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "twitch",
+      "path": "geo/geosite/twitch.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "twitter",
+      "path": "geo/geosite/twitter.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "whatsapp",
+      "path": "geo/geosite/whatsapp.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "xai",
+      "path": "geo/geosite/xai.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "xbox",
+      "path": "geo/geosite/xbox.list",
+      "license": "GPL-3.0"
+    },
+    {
+      "category": "youtube",
+      "path": "geo/geosite/youtube.list",
+      "license": "GPL-3.0"
+    }
+  ]
+}
