@@ -45,6 +45,8 @@ const hiddenRootEntries = new Set([
   'Config'
 ]);
 
+const rLeadingSlash = /^\/+/;
+
 async function copyDirContents(srcDir: string, destDir: string, promises: Array<Promise<VoidOrVoidArray>> = []): Promise<Array<Promise<VoidOrVoidArray>>> {
   for await (const entry of await fsp.opendir(srcDir)) {
     const src = path.join(srcDir, entry.name);
@@ -144,8 +146,9 @@ export function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: strin
         </li>
       `;
     } else if (/* entry.type === 'file' && */ !entry.name.endsWith('.html') && entry.name[0] !== '_') {
+      const relativePath = entry.path.replaceAll('\\', '/').replace(rLeadingSlash, '');
       result += html`
-        <li class="file"><a class="file-link" href="${entry.path}">${entry.name}</a></li>
+        <li class="file"><a class="file-link" href="${relativePath}">${entry.name}</a></li>
       `;
     }
   }
@@ -722,7 +725,7 @@ function generateHtml(tree: TreeTypeArray) {
         <main class="container">
           <h1>RuleMesh Ruleset Server</h1>
           <p>
-            Maintained by <a href="https://github.com/codingmesh">codingmesh</a> | Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="https://github.com/codingmesh/rulemesh">Source @ GitHub</a> | Licensed under <a href="/LICENSE" target="_blank">AGPL-3.0</a>
+            Maintained by <a href="https://github.com/codingmesh">codingmesh</a> | Based on <a href="https://github.com/SukkaW/Surge">SukkaW/Surge</a> | <a href="https://github.com/codingmesh/rulemesh">Source @ GitHub</a> | Licensed under <a href="LICENSE" target="_blank">AGPL-3.0</a>
           </p>
           <p>Last Build: ${new Date().toISOString()}</p>
           <br>

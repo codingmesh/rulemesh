@@ -9,11 +9,20 @@ describe('RuleMesh integration with the inherited build', () => {
   it('keeps configuration output out of the root rules directory', () => {
     const html = treeHtml([
       { type: TreeFileType.DIRECTORY, name: 'Config', path: '/Config', children: [] },
-      { type: TreeFileType.DIRECTORY, name: 'Shadowrocket', path: '/Shadowrocket', children: [] }
+      {
+        type: TreeFileType.DIRECTORY,
+        name: 'Shadowrocket',
+        path: '/Shadowrocket',
+        children: [
+          { type: TreeFileType.FILE, name: 'anthropic.conf', path: '/Shadowrocket/anthropic.conf' }
+        ]
+      }
     ]);
 
     expect(html).not.toInclude('Config');
     expect(html).toInclude('Shadowrocket');
+    expect(html).toInclude('href="Shadowrocket/anthropic.conf"');
+    expect(html).not.toInclude('href="/Shadowrocket');
   });
 
   it('serializes domain sets as explicit Shadowrocket rules', () => {
