@@ -16,7 +16,7 @@ RuleMesh 是基于 [SukkaW/Surge](https://github.com/SukkaW/Surge) 持续维护�
 | --- | --- | --- |
 | Shadowrocket | `Shadowrocket/` | 标准/广告完整配置 URL 与二维码，可直接导入 |
 | Surge | `List/` | 标准/广告结构模板；本地组合后得到完整配置 |
-| Mihomo / Clash | `Clash/` | 标准/广告 YAML 模板；本地组合后得到完整配置 |
+| Clash Verge Rev / Mihomo | `Clash/` | 标准/广告 YAML 模板；本地组合后得到完整配置 |
 | sing-box | `sing-box/` | 标准/广告 JSON 模板；本地组合后得到完整配置 |
 | Surfboard | `Surfboard/` | 规则文件 |
 | Legacy Clash Premium | `LegacyClashPremium/` | 兼容格式规则文件 |
@@ -46,7 +46,7 @@ pnpm run config -- compose mihomo --nodes /absolute/path/base.yaml
 pnpm run config -- compose singbox --nodes /absolute/path/base.json
 ```
 
-把组合后的文件托管到自己的 HTTPS 地址后，可在站点对应客户端面板粘贴该 URL，生成并打开 Surge、兼容 Mihomo GUI 或 sing-box 的导入 scheme。URL 只在浏览器本地编码，不会提交给 RuleMesh。
+每个配置和模板都提供 **Copy URL**。把组合后的文件托管到自己的 HTTPS 地址后，可在站点对应客户端面板粘贴该 URL，通过 `surge:///install-config`、Clash Verge Rev 的 `clash://install-config` 或 `sing-box://import-remote-profile` 执行 **Open & Import**。URL 只在浏览器本地编码，不会提交给 RuleMesh。
 
 客户端无法原生表达的规则类型不会被描述为等价支持；当前逐分类差异发布在 `Config/capability-gaps.json`，审阅基线位于 `sources/capability-gaps-approved.json`。新增或消失的能力缺口会阻断构建，必须更新理由和审阅日期。
 

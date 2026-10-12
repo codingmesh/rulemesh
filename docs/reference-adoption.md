@@ -63,7 +63,7 @@
 | --- | --- | --- |
 | Shadowrocket | [LingJingMaster 完整结构](https://github.com/LingJingMaster/Shadowrocket-Rules/blob/c61257022f647a825be423a84253386b9d3adc03/Shadowrocket.conf)、LOWERTOP 导入/组选择行为参考 | config URL/已验证 QR，首页节点与稳定组；标准/广告一致，资源刷新与配置刷新分别实测 |
 | Surge | Sukka DOMAIN-SET/RULE-SET 示例与 [原生 policy including](https://manual.nssurge.com/policy-groups/policy-including.html) | 结构模板与本地节点底稿 compose 后形成完整配置；模板本身不冒充可运行配置 |
-| Mihomo | Sukka/Loyalsoldier providers、[原生 rule-providers](https://wiki.metacubex.one/config/rule-providers/)、ACL4SSR 主组/服务组组织参考 | YAML 模板接入用户 proxies/providers 后形成完整配置；interval 明确，INI 不冒充 YAML |
+| Clash Verge Rev / Mihomo | Sukka/Loyalsoldier providers、[原生 rule-providers](https://wiki.metacubex.one/config/rule-providers/)、[Clash Verge Rev URL Schemes](https://clash-verge-rev.github.io/guide/url_schemes.html)、ACL4SSR 主组/服务组组织参考 | YAML 模板接入用户 proxies/providers 后形成完整配置；站点按官方 `clash://install-config?url=` 打开 Clash Verge Rev，INI 不冒充 YAML |
 | sing-box | [原生 rule_set](https://sing-box.sagernet.org/configuration/rule-set/)、[route](https://sing-box.sagernet.org/configuration/route/)、[selector](https://sing-box.sagernet.org/configuration/outbound/selector/) | JSON 模板接入真实 outbounds 和 DNS 后形成完整配置；拒绝会遮蔽 RuleMesh 顺序的既有 route.rules，能力差异公开列出 |
 
 General/DNS/IPv6/TUN 参数按方案默认取向及目标来源核查，用户已指定底稿设置不能被默认参数覆盖。节点出口由用户选择；公开模板不嵌入凭证，不开无需求的 MITM/脚本/重写。使用 native 下载、缓存和选择机制，不增加通用转换平台。
