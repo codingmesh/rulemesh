@@ -79,6 +79,10 @@ pnpm run sync -- --write  # 更新到最新上游，供候选 PR 使用
 pnpm run sync:verify      # 验证当前固定输入可重现
 ```
 
+## 研究与设计依据
+
+项目保留此前对 SukkaW/Surge、MetaCubeX、blackmatrix7、Loyalsoldier、SagerNet、LOWERTOP、LingJingMaster、Johnshall 和 ACL4SSR 等项目的研究、来源审计与采用记录。研究资料及状态说明见 [docs/README.md](docs/README.md)。研究结论不自动等于已经实现，后续验收必须逐项核对源码和产物。
+
 ## 构建与验收
 
 ```sh
