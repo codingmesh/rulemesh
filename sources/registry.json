@@ -3,7 +3,7 @@
   "upstream": {
     "repository": "MetaCubeX/meta-rules-dat",
     "branch": "meta",
-    "revision": "83c8208bdfae92b1caaa29745f51f233b6f1847e"
+    "revision": "7226545410c4dbb3854a5235803a26d86a298072"
   },
   "files": [
     {
