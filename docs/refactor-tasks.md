@@ -38,3 +38,5 @@
 采用现有TypeScript、Mocha、ESLint、artifact acceptance和native-routing。普通修改只执行有关检查；改变规则内容、输出集合或引用时执行完整构建及对应原生验证。通过后无新风险不重复运行，不为覆盖率、文案或样式增加冗余测试。不引入Release、版本晋升、回滚演练或独立审计平台。
 
 2026-10-12 README/配置页优化：内联折叠二维码、整理操作与字体/按钮层级、精简重复说明；四客户端切换、复制、键盘、表单Enter、320–1280px和两主题a11y验证通过。规则/配置字节对照未变，未新增样式单测或扩大原生设备验收；具体证据见项目验收记录P05。
+
+2026-11-09 Anthropic 社区/官方资料核对：Source/domainset/anthropic.conf 与 sources/overrides.json 增补12项（9个社区后缀、3个精确遥测主机），共22项；来源目录校验、既有override回归3项和build-common生成通过。小火箭原生生成格式及新增条目覆盖检查通过；现用两条Anthropic RULE-SET仍指固定ISP，未改配置、未发布、未刷新客户端。X站内搜索连接失败，无可核实原帖；研究与边界见anthropic-domains-research-20261109.md。不是全站发布验收。

@@ -7,6 +7,90 @@
       "reason": "Claude Desktop official network requirements",
       "evidence": "https://code.claude.com/docs/en/desktop#network-access-requirements",
       "checkedAt": "2026-10-11"
+    },
+    {
+      "category": "anthropic",
+      "value": ".ant.dev",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".anthropic.team",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".antspace.dev",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".chatbotclaude.com",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".claude.new",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".claude.site",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".claudeacademy.com",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".claudepages.dev",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": ".claudestudio.com",
+      "reason": "Reviewed MetaCubeX community Anthropic classification; not a claim that every domain is required by the API",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": "http-intake.logs.us5.datadoghq.com",
+      "reason": "Exact optional telemetry host; keep existing ISP routing without matching the whole shared telemetry provider",
+      "evidence": "https://code.claude.com/docs/en/network-config#network-access-requirements",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": "browser-intake-us5-datadoghq.com",
+      "reason": "Exact optional telemetry host; keep existing ISP routing without matching the whole shared telemetry provider",
+      "evidence": "https://code.claude.com/docs/en/network-config#network-access-requirements",
+      "checkedAt": "2026-11-09"
+    },
+    {
+      "category": "anthropic",
+      "value": "o1158394.ingest.us.sentry.io",
+      "reason": "Exact optional telemetry host; keep existing ISP routing without matching the whole shared telemetry provider",
+      "evidence": "https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/anthropic.list",
+      "checkedAt": "2026-11-09"
     }
   ],
   "remove": []
